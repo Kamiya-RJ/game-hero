@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 import Flag from '../objects/Flag.js';
 import Castle from '../objects/Castle.js';
+import Coin from '../objects/Coin.js';
 import { GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER, PLAYER_HEIGHT } from '../constants.js';
 
 export default class GameScene extends Phaser.Scene {
@@ -13,6 +14,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('idle', 'assets/Dude_Monster/Dude_Monster_Idle_4.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('run',  'assets/Dude_Monster/Dude_Monster_Run_6.png',  { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('jump', 'assets/Dude_Monster/Dude_Monster_Jump_8.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('coin', 'assets/Coin_Gems/MonedaD.png', { frameWidth: 16, frameHeight: 16 });
   }
 
   create() {
@@ -35,9 +37,22 @@ export default class GameScene extends Phaser.Scene {
     // --- 浮动平台 ---
     const platformData = [
       { x: W * 0.2,  y: H - 150 },
-      { x: W * 0.5,  y: H - 250 },
-      { x: W * 0.75, y: H - 180 },
-      { x: W * 0.4,  y: H - 380 },
+      { x: W * 0.4,  y: H - 250 },
+      { x: W * 0.6,  y: H - 180 },
+      { x: W * 0.8,  y: H - 320 },
+      { x: W * 1.0,  y: H - 200 },
+      { x: W * 1.2,  y: H - 280 },
+      { x: W * 1.4,  y: H - 150 },
+      { x: W * 1.6,  y: H - 350 },
+      { x: W * 1.8,  y: H - 220 },
+      { x: W * 2.0,  y: H - 300 },
+      { x: W * 2.2,  y: H - 180 },
+      { x: W * 2.4,  y: H - 250 },
+      { x: W * 2.6,  y: H - 150 },
+      { x: W * 2.8,  y: H - 320 },
+      { x: W * 3.0,  y: H - 200 },
+      { x: W * 3.2,  y: H - 280 },
+      { x: W * 3.5,  y: H - 150 },
     ];
 
     platformData.forEach(({ x, y }) => {
@@ -45,11 +60,37 @@ export default class GameScene extends Phaser.Scene {
       p.refreshBody();
     });
 
+    // --- 金币动画 ---
+    this.anims.create({
+      key: 'coin_spin',
+      frames: this.anims.generateFrameNumbers('coin', { start: 0, end: 4 }),
+      frameRate: 10,
+      repeat: -1
+    });
+    
+    // --- 金币组 ---
+    this.coins = this.physics.add.group({
+      allowGravity: false,
+      immovable: true
+    });
+    platformData.forEach(({ x, y }) => {
+      const coin = new Coin(this, x, y - 40);
+      this.coins.add(coin);
+    });
+    
     // --- Player ---
     this.player = new Player(this, 100, H - GROUND_HEIGHT - PLAYER_HEIGHT / 2);
 
-    // --- Collider ---
-    this.physics.add.collider(this.player, this.platforms);
+    // --- 计分 ---
+    this.score = 0;
+    this.scoreText = this.add.text(16, 16, 'Score: 0', {
+      fontSize: '24px',
+      color: '#FFD700',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setScrollFactor(0); // 固定在屏幕上不随摄像机移动
+
 
     // --- 摄像机 ---
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, H);
@@ -61,12 +102,20 @@ export default class GameScene extends Phaser.Scene {
     
     this.flag = new Flag(this, midX - 200, groundY);
     this.castle = new Castle(this, WORLD_WIDTH - 100, groundY);
+
     
-    // --- 进入城门触发关卡完成 ---
-    this.physics.add.overlap(
-      this.player,
-      this.castle.zone,
-      () => {
+        // ---平台碰撞 ---
+    this.physics.add.collider(this.player, this.platforms);
+
+    // --- 金币碰撞 ---
+    this.physics.add.overlap(this.player, this.coins, (player, coin) => {
+      coin.destroy();
+      this.score += 10;
+      this.scoreText.setText('Score: ' + this.score);
+    });
+
+    // --- 城门碰撞 进入城门触发关卡完成 ---
+    this.physics.add.overlap(this.player, this.castle.zone, () => {
         this.scene.start('WinScene');
       }
     );
@@ -74,7 +123,7 @@ export default class GameScene extends Phaser.Scene {
     // --- Keyboard ---
     this.cursors = this.input.keyboard.createCursorKeys();
     this.cursors.ctrl = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.CTRL);
-    
+
   }
 
   createTextures(WORLD_WIDTH) {
