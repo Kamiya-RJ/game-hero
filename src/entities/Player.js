@@ -41,7 +41,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   update(cursors) {
     const onGround = this.body.blocked.down;
     const speed = cursors.ctrl.isDown ? 500 : 250;
-
+  
+    // Left / Right
     if (cursors.left.isDown) {
       this.setVelocityX(-speed);
       this.setFlipX(true);
@@ -54,10 +55,35 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityX(0);
       if (onGround) this.play('anim_idle', true);
     }
-
+  
+    // 可变跳跃
     if (Phaser.Input.Keyboard.JustDown(cursors.space) && onGround) {
-      this.setVelocityY(-600);
+      this.setVelocityY(-600);  // 恢复原来的初速度
+      this.isJumping = true;
+      this.jumpTime = 0;
       this.play('anim_jump', true);
     }
+    
+    if (cursors.space.isDown && this.isJumping) {
+      this.jumpTime += 1;
+      if (this.jumpTime < 15) {
+        // 长按时持续向上加力，最多15帧
+        this.setVelocityY(this.body.velocity.y - 20);
+      }
+    }
+    
+    if (Phaser.Input.Keyboard.JustUp(cursors.space)) {
+      // 短按松开时立刻减速，造成小跳效果
+      if (this.body.velocity.y < -200) {
+        this.setVelocityY(-200);
+      }
+      this.isJumping = false;
+    }
+    
+    if (onGround) {
+      this.isJumping = false;
+      this.jumpTime = 0;
+    }
   }
+  
 }

@@ -36,25 +36,18 @@ export default class GameScene extends Phaser.Scene {
 
     // --- 浮动平台 ---
     const platformData = [
-      { x: W * 0.2,  y: H - 150 },
-      { x: W * 0.4,  y: H - 250 },
-      { x: W * 0.6,  y: H - 180 },
-      { x: W * 0.8,  y: H - 320 },
-      { x: W * 1.0,  y: H - 200 },
-      { x: W * 1.2,  y: H - 280 },
-      { x: W * 1.4,  y: H - 150 },
-      { x: W * 1.6,  y: H - 350 },
-      { x: W * 1.8,  y: H - 220 },
-      { x: W * 2.0,  y: H - 300 },
-      { x: W * 2.2,  y: H - 180 },
-      { x: W * 2.4,  y: H - 250 },
-      { x: W * 2.6,  y: H - 150 },
-      { x: W * 2.8,  y: H - 320 },
+      { x: W * 0.5,  y: H - 200 },
+      { x: W * 0.9,  y: H - 300 },
+      { x: W * 1.2,  y: H - 180 },
+      { x: W * 1.5,  y: H - 320 },
+      { x: W * 1.8,  y: H - 200 },
+      { x: W * 2.1,  y: H - 280 },
+      { x: W * 2.4,  y: H - 150 },
+      { x: W * 2.7,  y: H - 320 },
       { x: W * 3.0,  y: H - 200 },
-      { x: W * 3.2,  y: H - 280 },
-      { x: W * 3.5,  y: H - 150 },
+      { x: W * 3.3,  y: H - 250 },
     ];
-
+    
     platformData.forEach(({ x, y }) => {
       const p = this.platforms.create(x, y, 'platform');
       p.refreshBody();
