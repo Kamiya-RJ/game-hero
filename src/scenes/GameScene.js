@@ -53,6 +53,7 @@ export default class GameScene extends Phaser.Scene {
       p.refreshBody();
     });
 
+
     // --- 金币动画 ---
     this.anims.create({
       key: 'coin_spin',
@@ -71,6 +72,22 @@ export default class GameScene extends Phaser.Scene {
       this.coins.add(coin);
     });
     
+    // --- 空中金币 ---
+    const airCoinData = [
+      { x: W * 0.3,  y: H - 120 },  // 从地面可跳到
+      { x: W * 0.7,  y: H - 130 },  // 从地面可跳到
+      { x: W * 1.1,  y: H - 320 },  // 从平台可跳到
+      { x: W * 1.6,  y: H - 150 },  // 从地面可跳到
+      { x: W * 2.2,  y: H - 380 },  // 从平台可跳到
+      { x: W * 2.9,  y: H - 400 },  // 从平台可跳到
+    ];
+    
+    airCoinData.forEach(({ x, y }) => {
+      const coin = new Coin(this, x, y);
+      this.coins.add(coin);
+    });
+    
+
     // --- Player ---
     this.player = new Player(this, 100, H - GROUND_HEIGHT - PLAYER_HEIGHT / 2);
 
