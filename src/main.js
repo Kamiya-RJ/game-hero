@@ -1,7 +1,6 @@
 import './style.css';
 import Phaser from 'phaser';
 
-
 const config = {
   type: Phaser.AUTO,
   width: window.innerWidth,
@@ -24,17 +23,29 @@ let player;
 let cursors;
 let platforms;
 
-
 const PLAYER_SCALE = 2;
 const PLAYER_WIDTH = 32 * PLAYER_SCALE;
 const PLAYER_HEIGHT = 32 * PLAYER_SCALE;
 const GROUND_HEIGHT = 32;
 
-
 function preload() {
   this.load.spritesheet('idle', 'assets/Dude_Monster/Dude_Monster_Idle_4.png', { frameWidth: 32, frameHeight: 32 });
   this.load.spritesheet('run',  'assets/Dude_Monster/Dude_Monster_Run_6.png',  { frameWidth: 32, frameHeight: 32 });
   this.load.spritesheet('jump', 'assets/Dude_Monster/Dude_Monster_Jump_8.png', { frameWidth: 32, frameHeight: 32 });
+
+  // 创建绿色平台纹理
+  const g = this.make.graphics({ x: 0, y: 0, add: false });
+  g.fillStyle(0x228B22, 1);
+  g.fillRect(0, 0, 150, 20);
+  g.generateTexture('platform', 150, 20);
+  g.destroy();
+
+  // 创建绿色地面纹理
+  const g2 = this.make.graphics({ x: 0, y: 0, add: false });
+  g2.fillStyle(0x228B22, 1);
+  g2.fillRect(0, 0, window.innerWidth, GROUND_HEIGHT);
+  g2.generateTexture('ground', window.innerWidth, GROUND_HEIGHT);
+  g2.destroy();
 }
 
 function create() {
@@ -43,13 +54,27 @@ function create() {
 
   // --- Ground ---
   platforms = this.physics.add.staticGroup();
-  const ground = platforms.create(W / 2, H - GROUND_HEIGHT / 2, null);
+  const ground = platforms.create(W / 2, H - GROUND_HEIGHT / 2, 'ground');
   ground.setDisplaySize(W, GROUND_HEIGHT);
   ground.setTint(0x228B22);
   ground.refreshBody();
 
+  // --- 浮动平台 ---
+  const platformData = [
+    { x: W * 0.2,  y: H - 150 },
+    { x: W * 0.5,  y: H - 250 },
+    { x: W * 0.75, y: H - 180 },
+    { x: W * 0.4,  y: H - 380 },
+  ];
+
+  platformData.forEach(({ x, y }) => {
+    const p = platforms.create(x, y, 'platform');
+    p.setDisplaySize(150, 20);
+    p.setTint(0x228B22);
+    p.refreshBody();
+  });
+
   // --- Player ---
-  const playerHeight = 32 * 2; // sprite height * scale
   player = this.physics.add.sprite(100, H - GROUND_HEIGHT - PLAYER_HEIGHT / 2, 'idle');
   player.setScale(PLAYER_SCALE);
   player.setCollideWorldBounds(true);
