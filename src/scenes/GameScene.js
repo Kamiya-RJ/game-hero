@@ -3,7 +3,11 @@ import Player from '../entities/Player.js';
 import Flag from '../objects/Flag.js';
 import Castle from '../objects/Castle.js';
 import Coin from '../objects/Coin.js';
-import { GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER, PLAYER_HEIGHT, GRAVITY, PLAYER_SPEED, PLAYER_JUMP_VELOCITY } from '../constants.js';
+import Slime from '../entities/Slime.js';
+import {
+  GRAVITY, GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER, PLAYER_HEIGHT, PLAYER_SPEED,
+  PLAYER_JUMP_VELOCITY, PLAYER_INITIAL_LIVES, PLATFORM_HEIGHT, PLATFORM_WIDTH
+} from '../constants.js';
 
 
 
@@ -21,6 +25,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('run', 'assets/Dude_Monster/Dude_Monster_Run_6.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('jump', 'assets/Dude_Monster/Dude_Monster_Jump_8.png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('coin', 'assets/Coin_Gems/MonedaD.png', { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('slime_run', 'assets/Enemies/Slime/Idle-Run (44x30).png', { frameWidth: 44, frameHeight: 30 });
+    this.load.spritesheet('slime_hit', 'assets/Enemies/Slime/Hit (44x30).png', { frameWidth: 44, frameHeight: 30 });
   }
 
   /**
@@ -40,6 +46,8 @@ export default class GameScene extends Phaser.Scene {
     this.createPlatforms();
     this.createCoins();
     this.createPlayer();
+    this.createEnemies();
+    this.createLives();
     this.createDecorations();
     this.createColliders();
     this.createCamera();
@@ -166,6 +174,53 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 创建敌人
+   * 在部分平台上放置史莱姆
+   */
+  createEnemies() {
+    // 注册史莱姆动画
+    this.anims.create({
+      key: 'slime_run',
+      frames: this.anims.generateFrameNumbers('slime_run', { start: 0, end: 9 }),
+      frameRate: 10,
+      repeat: -1
+    });
+
+    this.anims.create({
+      key: 'slime_hit',
+      frames: this.anims.generateFrameNumbers('slime_hit', { start: 0, end: 4 }),
+      frameRate: 10,
+      repeat: 0
+    });
+
+    // 在部分平台上放敌人
+    this.enemies = this.physics.add.group();
+    const enemyPlatforms = [1, 3, 5, 7, 9]; // platformData 的索引
+    enemyPlatforms.forEach(i => {
+      const { x, y } = this.platformData[i];
+      console.log(`平台${i}: x=${x}, y=${y}, 敌人y=${y - 20}`);
+      const slime = new Slime(this, x, y - PLATFORM_HEIGHT / 2 - 20);
+      this.enemies.add(slime);
+    });
+
+  }
+
+  /**
+   * 创建生命值 HUD
+   * 显示3个爱心在屏幕右上角
+   */
+  createLives() {
+    this.lives = PLAYER_INITIAL_LIVES;
+    this.livesText = this.add.text(this.scale.width - 16, 16, `❤️ x${this.lives}`, {
+      fontSize: '24px',
+      color: '#ff4444',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(1, 0).setScrollFactor(0);
+  }
+
+  /**
    * 创建场景装饰物
    * 包括世界中点的旗子和终点城堡
    */
@@ -184,6 +239,8 @@ export default class GameScene extends Phaser.Scene {
    */
   createColliders() {
     this.physics.add.collider(this.player, this.platforms);
+    // 敌人与平台碰撞
+    this.physics.add.collider(this.enemies, this.platforms);
 
     this.physics.add.overlap(this.player, this.coins, (player, coin) => {
       coin.destroy();
@@ -194,7 +251,43 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.castle.zone, () => {
       this.scene.start('WinScene');
     });
+
+    // 玩家踩敌人（从上方）
+    this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+      // 确保敌人还活着（在平台上）
+      if (!enemy.active) return;
+
+      if (player.body.velocity.y > 0 && player.y < enemy.y - 10) {
+        enemy.die(this);
+        this.score += 50;
+        this.scoreText.setText('Score: ' + this.score);
+        player.setVelocityY(-400); // 踩敌人后弹起
+      } else {
+        this.hitByEnemy();
+      }
+    });
   }
+
+
+  /**
+   * 玩家被敌人碰到
+   * 扣一条命，归零则跳转 GameOver
+   */
+  hitByEnemy() {
+    this.lives -= 1;
+    this.livesText.setText('❤️ x' + this.lives);
+
+    // 短暂无敌闪烁
+    this.player.setTint(0xff0000);
+    this.time.delayedCall(1000, () => {
+      this.player.clearTint();
+    });
+
+    if (this.lives <= 0) {
+      this.scene.start('GameOverScene');
+    }
+  }
+
 
   /**
    * 设置摄像机跟随玩家
@@ -254,9 +347,12 @@ export default class GameScene extends Phaser.Scene {
   /**
    * 每帧更新
    * 将键盘输入传给玩家处理
+   * 更新所有敌人状态（移动和动画）
    */
   update() {
     this.player.update(this.cursors);
+
+    this.enemies.getChildren().forEach(enemy => enemy.update());
   }
 
 }
