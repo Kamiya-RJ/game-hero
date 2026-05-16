@@ -14,6 +14,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     super(scene, x, y, 'idle');
     scene.add.existing(this);
     scene.physics.add.existing(this);
+    this.soundManager = scene.soundManager;
 
     this.setScale(PLAYER_SCALE);
     this.setCollideWorldBounds(true);
@@ -30,24 +31,33 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
    * idle: 站立, run: 跑步, jump: 跳跃
    */
   createAnimations(scene) {
-    scene.anims.create({
-      key: 'anim_idle',
-      frames: scene.anims.generateFrameNumbers('idle', { start: 0, end: 3 }),
-      frameRate: 8,
-      repeat: -1
-    });
-    scene.anims.create({
-      key: 'anim_run',
-      frames: scene.anims.generateFrameNumbers('run', { start: 0, end: 5 }),
-      frameRate: 12,
-      repeat: -1
-    });
-    scene.anims.create({
-      key: 'anim_jump',
-      frames: scene.anims.generateFrameNumbers('jump', { start: 0, end: 7 }),
-      frameRate: 12,
-      repeat: 0
-    });
+    if (!scene.anims.exists('anim_idle')) {
+      scene.anims.create({
+        key: 'anim_idle',
+        frames: scene.anims.generateFrameNumbers('idle', { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+
+    if (!scene.anims.exists('anim_run')) {
+      scene.anims.create({
+        key: 'anim_run',
+        frames: scene.anims.generateFrameNumbers('run', { start: 0, end: 5 }),
+        frameRate: 12,
+        repeat: -1
+      });
+    }
+
+    if (!scene.anims.exists('anim_jump')) {
+      scene.anims.create({
+        key: 'anim_jump',
+        frames: scene.anims.generateFrameNumbers('jump', { start: 0, end: 7 }),
+        frameRate: 12,
+        repeat: 0
+      });
+    }
+
     this.play('anim_idle');
   }
 
@@ -80,6 +90,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.isJumping = true;
       this.jumpTime = 0;
       this.play('anim_jump', true);
+      if (this.soundManager) this.soundManager.playJump();
     }
 
     // 长按空格持续向上施力（大跳）

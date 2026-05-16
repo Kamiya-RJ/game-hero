@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import SoundManager from '../managers/SoundManager.js';
 import { WIN_FONT_SIZE, BTN_FONT_SIZE } from '../constants.js';
 
 /**
@@ -12,6 +13,9 @@ export default class WinScene extends Phaser.Scene {
   }
 
   create() {
+    const soundManager = new SoundManager(this);
+    soundManager.playWin();
+
     const W = this.scale.width;
     const H = this.scale.height;
 
@@ -36,5 +40,6 @@ export default class WinScene extends Phaser.Scene {
     btn.on('pointerover', () => btn.setStyle({ color: '#FFD700' }));
     btn.on('pointerout',  () => btn.setStyle({ color: '#ffffff' }));
     btn.on('pointerdown', () => this.scene.start('GameScene'));
+
   }
 }

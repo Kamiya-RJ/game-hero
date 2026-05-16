@@ -4,6 +4,7 @@ import Flag from '../objects/Flag.js';
 import Castle from '../objects/Castle.js';
 import Coin from '../objects/Coin.js';
 import Slime from '../entities/Slime.js';
+import SoundManager from '../managers/SoundManager.js';
 import {
   GRAVITY, GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER,
   PLAYER_HEIGHT, PLAYER_SPEED, PLAYER_JUMP_VELOCITY,
@@ -63,6 +64,7 @@ export default class GameScene extends Phaser.Scene {
     this.createCamera();
     this.createHUD();
     this.createInput();
+    this.soundManager = new SoundManager(this);
   }
 
   /**
@@ -133,12 +135,14 @@ export default class GameScene extends Phaser.Scene {
     const { W, H } = this;
 
     // 注册金币旋转动画
-    this.anims.create({
-      key: 'coin_spin',
-      frames: this.anims.generateFrameNumbers('coin', { start: 0, end: COIN_FRAMES }),
-      frameRate: COIN_SPIN_FRAMERATE,
-      repeat: -1
-    });
+    if (!this.anims.exists('coin_spin')) {
+      this.anims.create({
+        key: 'coin_spin',
+        frames: this.anims.generateFrameNumbers('coin', { start: 0, end: COIN_FRAMES }),
+        frameRate: COIN_SPIN_FRAMERATE,
+        repeat: -1
+      });
+    }
 
     // 金币物理组：关闭重力，设为不可移动
     this.coins = this.physics.add.group({
@@ -193,20 +197,24 @@ export default class GameScene extends Phaser.Scene {
    */
   createEnemies() {
     // 注册史莱姆跑步动画
-    this.anims.create({
-      key: 'slime_run',
-      frames: this.anims.generateFrameNumbers('slime_run', { start: 0, end: SLIME_RUN_FRAMES }),
-      frameRate: SLIME_FRAMERATE,
-      repeat: -1
-    });
+    if (!this.anims.exists('slime_run')) {
+      this.anims.create({
+        key: 'slime_run',
+        frames: this.anims.generateFrameNumbers('slime_run', { start: 0, end: SLIME_RUN_FRAMES }),
+        frameRate: SLIME_FRAMERATE,
+        repeat: -1
+      });
+    }
 
     // 注册史莱姆受击动画
-    this.anims.create({
-      key: 'slime_hit',
-      frames: this.anims.generateFrameNumbers('slime_hit', { start: 0, end: SLIME_HIT_FRAMES }),
-      frameRate: SLIME_FRAMERATE,
-      repeat: 0
-    });
+    if (!this.anims.exists('slime_hit')) {
+      this.anims.create({
+        key: 'slime_hit',
+        frames: this.anims.generateFrameNumbers('slime_hit', { start: 0, end: SLIME_HIT_FRAMES }),
+        frameRate: SLIME_FRAMERATE,
+        repeat: 0
+      });
+    }
 
     this.enemies = this.physics.add.group();
 
@@ -267,6 +275,7 @@ export default class GameScene extends Phaser.Scene {
       coin.destroy();
       this.score += COIN_SCORE_VALUE;
       this.scoreText.setText('Score: ' + this.score);
+      this.soundManager.playCoin();
     });
 
     // 玩家进入城门触发关卡完成
@@ -285,10 +294,12 @@ export default class GameScene extends Phaser.Scene {
         this.score += SLIME_SCORE_VALUE;
         this.scoreText.setText('Score: ' + this.score);
         player.setVelocityY(PLAYER_STOMP_BOUNCE);
+        this.soundManager.playStomp();
       } else {
         // 从侧面碰到敌人：扣血
         this.hitByEnemy();
       }
+
     });
 
   }
@@ -300,32 +311,35 @@ export default class GameScene extends Phaser.Scene {
    */
   hitByEnemy() {
     if (this.isInvincible) return;
-  
+
     this.lives -= 1;
     this.livesText.setText('❤️ x' + this.lives);
-  
-    if (this.lives <= 0) {
-      this.scene.start('GameOverScene');
-      return;
-    }
-  
+    this.soundManager.playHurt();
+
     // 击退：向反方向弹开
     const knockbackX = this.player.flipX ? PLAYER_KNOCKBACK_X : -PLAYER_KNOCKBACK_X;
     this.player.setVelocityX(knockbackX);
     this.player.setVelocityY(PLAYER_KNOCKBACK_Y);
-  
+
+    if (this.lives <= 0) {
+      this.scene.start('GameOverScene');
+      return;
+    }
+
     // 开启无敌状态
     this.isInvincible = true;
-  
+
+    // 闪烁次数 = 无敌时间 / 每次切换间隔 - 1
+    const flashCount = (PLAYER_INVINCIBLE_DURATION / 100) - 1;
     // 闪烁效果
     this.flashTimer = this.time.addEvent({
       delay: 100,
-      repeat: 9,
+      repeat: flashCount,
       callback: () => {
         this.player.setVisible(!this.player.visible);
       }
     });
-  
+
     // 无敌时间结束
     this.time.delayedCall(PLAYER_INVINCIBLE_DURATION, () => {
       this.isInvincible = false;

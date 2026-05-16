@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
-import { GAMEOVER_FONT_SIZE, BTN_FONT_SIZE, HUD_STROKE_COLOR, HUD_STROKE_THICKNESS } from '../constants.js';
+import SoundManager from '../managers/SoundManager.js';
+import {
+  GAMEOVER_FONT_SIZE, BTN_FONT_SIZE, HUD_STROKE_COLOR, HUD_STROKE_THICKNESS
+} from '../constants.js';
 
 /**
  * 游戏结束场景
@@ -12,6 +15,9 @@ export default class GameOverScene extends Phaser.Scene {
   }
 
   create() {
+    const soundManager = new SoundManager(this);
+    soundManager.playGameOver();
+
     const W = this.scale.width;
     const H = this.scale.height;
 
@@ -36,7 +42,7 @@ export default class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive();
 
     btn.on('pointerover', () => btn.setStyle({ color: '#FFD700' }));
-    btn.on('pointerout',  () => btn.setStyle({ color: '#ffffff' }));
+    btn.on('pointerout', () => btn.setStyle({ color: '#ffffff' }));
     btn.on('pointerdown', () => this.scene.start('GameScene'));
   }
 }
