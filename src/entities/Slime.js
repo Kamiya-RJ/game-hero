@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import {
   SLIME_SPEED, SLIME_SCALE, SLIME_BODY_WIDTH, SLIME_BODY_HEIGHT,
-  SLIME_BODY_OFFSET_X, SLIME_BODY_OFFSET_Y, PLATFORM_WIDTH, SLIME_PATROL_MARGIN
+  SLIME_BODY_OFFSET_X, SLIME_BODY_OFFSET_Y, PLATFORM_WIDTH, SLIME_PATROL_MARGIN,
+  SLIME_HIT_FRAMES, SLIME_FRAMERATE
 } from '../constants.js';
 
 /**
@@ -18,6 +19,8 @@ export default class Slime extends Phaser.Physics.Arcade.Sprite {
     this.setScale(SLIME_SCALE);
     this.setCollideWorldBounds(true);
     this.setVelocityX(SLIME_SPEED);
+
+    this.setFlipX(true); // 默认翻转，修正图片方向
 
     // 巡逻方向：1 向右，-1 向左
     this.direction = 1;
@@ -40,20 +43,20 @@ export default class Slime extends Phaser.Physics.Arcade.Sprite {
     // 碰到世界边界时反向
     if (this.body.blocked.right) {
       this.direction = -1;
-      this.setFlipX(true);
+      this.setFlipX(false);  // 向左
     } else if (this.body.blocked.left) {
       this.direction = 1;
-      this.setFlipX(false);
+      this.setFlipX(true);   // 向右
     }
 
     // 超出平台巡逻范围时反向
     const patrolRange = PLATFORM_WIDTH / 2 - SLIME_PATROL_MARGIN;
     if (this.x > this.startX + patrolRange) {
       this.direction = -1;
-      this.setFlipX(true);
+      this.setFlipX(false); // 向左
     } else if (this.x < this.startX - patrolRange) {
       this.direction = 1;
-      this.setFlipX(false);
+      this.setFlipX(true); // 向右
     }
 
     this.setVelocityX(SLIME_SPEED * this.direction);
@@ -66,8 +69,20 @@ export default class Slime extends Phaser.Physics.Arcade.Sprite {
   die() {
     this.setVelocityX(0);
     this.setActive(false);
+    this.body.enable = false;
     this.play('slime_hit');
-    this.once('animationcomplete', () => {
+
+    // 闪烁两下后消失
+    this.scene.time.addEvent({
+      delay: 100,
+      repeat: 3, // 4次切换 = 2次完整闪烁
+      callback: () => {
+        this.setVisible(!this.visible);
+      }
+    });
+
+    this.scene.time.delayedCall(400, () => {
+      this.setVisible(false);
       this.destroy();
     });
   }

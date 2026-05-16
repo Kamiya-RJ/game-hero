@@ -21,7 +21,10 @@ export const PLAYER_JUMP_HOLD_FORCE = 20;               // 长按每帧额外向
 export const PLAYER_JUMP_MIN_VELOCITY = -200;           // 短按松开后的最小跳跃速度
 export const PLAYER_STOMP_BOUNCE = -400;                // 踩敌人后的弹起速度
 export const PLAYER_INITIAL_LIVES = 3;                  // 初始生命数
-export const PLAYER_INVINCIBLE_DURATION = 1000;         // 被碰后无敌时间（毫秒）
+export const PLAYER_INVINCIBLE_DURATION = 2000;         // 被碰后无敌时间（毫秒）
+export const PLAYER_KNOCKBACK_X = 200;                  // 水平击退速度
+export const PLAYER_KNOCKBACK_Y = -300;                 // 垂直击退速度
+
 
 // ============================================================
 // 地面
@@ -94,3 +97,6 @@ export const HUD_STROKE_THICKNESS = 4;      // 文字描边厚度
 export const WIN_FONT_SIZE = '48px';        // 胜利场景标题字体
 export const GAMEOVER_FONT_SIZE = '52px';   // GameOver 场景标题字体
 export const BTN_FONT_SIZE = '32px';        // 按钮字体大小
+
+
+

@@ -8,6 +8,7 @@ import {
   GRAVITY, GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER,
   PLAYER_HEIGHT, PLAYER_SPEED, PLAYER_JUMP_VELOCITY,
   PLAYER_INITIAL_LIVES, PLAYER_INVINCIBLE_DURATION, PLAYER_STOMP_BOUNCE,
+  PLAYER_KNOCKBACK_X, PLAYER_KNOCKBACK_Y,
   PLATFORM_WIDTH, PLATFORM_HEIGHT, PLATFORM_HALF_HEIGHT,
   COIN_FRAMES, COIN_SPIN_FRAMERATE, COIN_PLATFORM_OFFSET, COIN_SCORE_VALUE,
   SLIME_RUN_FRAMES, SLIME_HIT_FRAMES, SLIME_FRAMERATE, SLIME_SCORE_VALUE, SLIME_SPAWN_OFFSET_Y,
@@ -276,6 +277,7 @@ export default class GameScene extends Phaser.Scene {
     // 玩家与敌人交互
     this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
       if (!enemy.active) return;
+      if (this.isInvincible) return; // 无敌期间跳过所有敌人碰撞
 
       // 从上方踩到敌人：敌人死亡，玩家弹起得分
       if (player.body.velocity.y > 0 && player.y < enemy.y - 10) {
@@ -288,6 +290,7 @@ export default class GameScene extends Phaser.Scene {
         this.hitByEnemy();
       }
     });
+
   }
 
   /**
@@ -296,18 +299,38 @@ export default class GameScene extends Phaser.Scene {
    * 生命归零则跳转 GameOver 场景
    */
   hitByEnemy() {
+    if (this.isInvincible) return;
+  
     this.lives -= 1;
     this.livesText.setText('❤️ x' + this.lives);
-
-    // 短暂变红表示受伤，期间不扣血
-    this.player.setTint(0xff0000);
-    this.time.delayedCall(PLAYER_INVINCIBLE_DURATION, () => {
-      this.player.clearTint();
-    });
-
+  
     if (this.lives <= 0) {
       this.scene.start('GameOverScene');
+      return;
     }
+  
+    // 击退：向反方向弹开
+    const knockbackX = this.player.flipX ? PLAYER_KNOCKBACK_X : -PLAYER_KNOCKBACK_X;
+    this.player.setVelocityX(knockbackX);
+    this.player.setVelocityY(PLAYER_KNOCKBACK_Y);
+  
+    // 开启无敌状态
+    this.isInvincible = true;
+  
+    // 闪烁效果
+    this.flashTimer = this.time.addEvent({
+      delay: 100,
+      repeat: 9,
+      callback: () => {
+        this.player.setVisible(!this.player.visible);
+      }
+    });
+  
+    // 无敌时间结束
+    this.time.delayedCall(PLAYER_INVINCIBLE_DURATION, () => {
+      this.isInvincible = false;
+      this.player.setVisible(true);
+    });
   }
 
   /**
