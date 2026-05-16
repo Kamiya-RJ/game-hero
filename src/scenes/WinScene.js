@@ -1,5 +1,11 @@
 import Phaser from 'phaser';
+import { WIN_FONT_SIZE, BTN_FONT_SIZE } from '../constants.js';
 
+/**
+ * 关卡完成场景
+ * 玩家进入城堡后触发
+ * 显示恭喜信息和重玩按钮
+ */
 export default class WinScene extends Phaser.Scene {
   constructor() {
     super({ key: 'WinScene' });
@@ -9,19 +15,19 @@ export default class WinScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // 背景遮罩
+    // 半透明黑色遮罩
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6);
 
-    // 关卡完成文字
+    // 标题
     this.add.text(W / 2, H / 2 - 80, '🎉 关卡完成！', {
-      fontSize: '48px',
+      fontSize: WIN_FONT_SIZE,
       color: '#FFD700',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // 重来按钮
+    // 重玩按钮
     const btn = this.add.text(W / 2, H / 2 + 20, '再来一次', {
-      fontSize: '32px',
+      fontSize: BTN_FONT_SIZE,
       color: '#ffffff',
       backgroundColor: '#228B22',
       padding: { x: 20, y: 10 }

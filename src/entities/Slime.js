@@ -1,66 +1,74 @@
 import Phaser from 'phaser';
-import { PLATFORM_WIDTH } from '../constants.js';
+import {
+  SLIME_SPEED, SLIME_SCALE, SLIME_BODY_WIDTH, SLIME_BODY_HEIGHT,
+  SLIME_BODY_OFFSET_X, SLIME_BODY_OFFSET_Y, PLATFORM_WIDTH, SLIME_PATROL_MARGIN
+} from '../constants.js';
 
-
-const SLIME_SPEED = 80;
-
+/**
+ * 史莱姆敌人类
+ * 继承自 Phaser.Physics.Arcade.Sprite
+ * 在平台上来回巡逻，碰到边缘或墙壁时反向
+ */
 export default class Slime extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y) {
+    super(scene, x, y, 'slime_run');
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
 
-    constructor(scene, x, y) {
-        super(scene, x, y, 'slime_run');
-        scene.add.existing(this);
-        scene.physics.add.existing(this);
+    this.setScale(SLIME_SCALE);
+    this.setCollideWorldBounds(true);
+    this.setVelocityX(SLIME_SPEED);
 
-        this.setScale(1.5);
-        this.setCollideWorldBounds(true);
-        this.setVelocityX(SLIME_SPEED);
-        this.direction = 1;
-        this.startX = x;
+    // 巡逻方向：1 向右，-1 向左
+    this.direction = 1;
 
-        // 缩小物理体，避免超出平台边缘
-        this.body.setSize(36, 24);
-        this.body.setOffset(4, 6);
+    // 记录出生点，用于计算巡逻范围
+    this.startX = x;
 
-        this.play('slime_run');
+    // 缩小物理体，避免超出平台边缘
+    this.body.setSize(SLIME_BODY_WIDTH, SLIME_BODY_HEIGHT);
+    this.body.setOffset(SLIME_BODY_OFFSET_X, SLIME_BODY_OFFSET_Y);
+
+    this.play('slime_run');
+  }
+
+  /**
+   * 每帧更新巡逻逻辑
+   * 优先检测世界边界，其次检测平台边缘范围
+   */
+  update() {
+    // 碰到世界边界时反向
+    if (this.body.blocked.right) {
+      this.direction = -1;
+      this.setFlipX(true);
+    } else if (this.body.blocked.left) {
+      this.direction = 1;
+      this.setFlipX(false);
     }
 
-    /**
-     * 每帧更新
-     * 碰到墙壁或平台边缘时反向
-     */
-    update() {
-        // 碰到世界边界或墙壁反向
-        if (this.body.blocked.right) {
-            this.direction = -1;
-            this.setFlipX(true);
-        } else if (this.body.blocked.left) {
-            this.direction = 1;
-            this.setFlipX(false);
-        }
-
-        // 检测平台边缘，快到边缘时反向
-        const tileSize = PLATFORM_WIDTH / 2 - 20; // 平台宽度一半 留20px边距
-
-        if (this.x > this.startX + tileSize) {
-            this.direction = -1;
-            this.setFlipX(true);
-        } else if (this.x < this.startX - tileSize) {
-            this.direction = 1;
-            this.setFlipX(false);
-        }
-
-        this.setVelocityX(SLIME_SPEED * this.direction);
+    // 超出平台巡逻范围时反向
+    const patrolRange = PLATFORM_WIDTH / 2 - SLIME_PATROL_MARGIN;
+    if (this.x > this.startX + patrolRange) {
+      this.direction = -1;
+      this.setFlipX(true);
+    } else if (this.x < this.startX - patrolRange) {
+      this.direction = 1;
+      this.setFlipX(false);
     }
 
-    /**
-     * 被踩死时播放受击动画然后销毁
-     */
-    die(scene) {
-        this.setVelocityX(0);
-        this.setActive(false);  // 立刻标记为非活跃
-        this.play('slime_hit');
-        this.once('animationcomplete', () => {
-            this.destroy();
-        });
-    }
+    this.setVelocityX(SLIME_SPEED * this.direction);
+  }
+
+  /**
+   * 被踩死时触发
+   * 立刻停止移动，播放受击动画后销毁
+   */
+  die() {
+    this.setVelocityX(0);
+    this.setActive(false);
+    this.play('slime_hit');
+    this.once('animationcomplete', () => {
+      this.destroy();
+    });
+  }
 }

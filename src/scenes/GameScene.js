@@ -5,12 +5,20 @@ import Castle from '../objects/Castle.js';
 import Coin from '../objects/Coin.js';
 import Slime from '../entities/Slime.js';
 import {
-  GRAVITY, GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER, PLAYER_HEIGHT, PLAYER_SPEED,
-  PLAYER_JUMP_VELOCITY, PLAYER_INITIAL_LIVES, PLATFORM_HEIGHT, PLATFORM_WIDTH
+  GRAVITY, GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER,
+  PLAYER_HEIGHT, PLAYER_SPEED, PLAYER_JUMP_VELOCITY,
+  PLAYER_INITIAL_LIVES, PLAYER_INVINCIBLE_DURATION, PLAYER_STOMP_BOUNCE,
+  PLATFORM_WIDTH, PLATFORM_HEIGHT, PLATFORM_HALF_HEIGHT,
+  COIN_FRAMES, COIN_SPIN_FRAMERATE, COIN_PLATFORM_OFFSET, COIN_SCORE_VALUE,
+  SLIME_RUN_FRAMES, SLIME_HIT_FRAMES, SLIME_FRAMERATE, SLIME_SCORE_VALUE, SLIME_SPAWN_OFFSET_Y,
+  HUD_FONT_SIZE, HUD_SCORE_COLOR, HUD_LIVES_COLOR, HUD_STROKE_COLOR, HUD_STROKE_THICKNESS
 } from '../constants.js';
 
-
-
+/**
+ * 主游戏场景
+ * 负责整个游戏世界的创建和更新
+ * 包括地面、平台、金币、玩家、敌人、装饰物、碰撞、摄像机和 HUD
+ */
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
@@ -18,7 +26,7 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * 预加载所有游戏资源
-   * 包括角色动画帧和金币动画帧
+   * 包括玩家、金币、史莱姆的精灵帧
    */
   preload() {
     this.load.spritesheet('idle', 'assets/Dude_Monster/Dude_Monster_Idle_4.png', { frameWidth: 32, frameHeight: 32 });
@@ -32,6 +40,7 @@ export default class GameScene extends Phaser.Scene {
   /**
    * 场景初始化入口
    * 按顺序创建世界中的所有元素
+   * 顺序很重要：平台必须在敌人和金币之前创建，玩家必须在碰撞检测之前创建
    */
   create() {
     const W = this.scale.width;
@@ -57,15 +66,18 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * 生成地面和平台的纹理
-   * 用 Graphics 绘制纯色矩形并转成纹理，供后续 create 使用
+   * 用 Graphics 绘制纯色矩形并转成可复用纹理
+   * 必须在 createGround 和 createPlatforms 之前调用
    */
   createTextures() {
+    // 平台纹理
     const g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0x228B22, 1);
-    g.fillRect(0, 0, 150, 20);
-    g.generateTexture('platform', 150, 20);
+    g.fillRect(0, 0, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+    g.generateTexture('platform', PLATFORM_WIDTH, PLATFORM_HEIGHT);
     g.destroy();
 
+    // 地面纹理（宽度覆盖整个世界）
     const g2 = this.make.graphics({ x: 0, y: 0, add: false });
     g2.fillStyle(0x228B22, 1);
     g2.fillRect(0, 0, this.WORLD_WIDTH, GROUND_HEIGHT);
@@ -87,6 +99,7 @@ export default class GameScene extends Phaser.Scene {
   /**
    * 创建所有浮动平台
    * 坐标使用屏幕宽度比例，适配不同屏幕尺寸
+   * platformData 存为实例变量，供 createCoins 和 createEnemies 复用
    */
   createPlatforms() {
     const { W, H } = this;
@@ -110,11 +123,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 创建所有金币
-   * 包括三种类型：
-   * - 平台上方金币：每个平台正上方
-   * - 空中金币：需要从地面或平台大跳才能触到
-   * - 抛物线金币：从最后平台右边缘跳起，沿跳跃轨迹排列
+   * 创建所有金币，分三种类型：
+   * 1. 平台上方金币 — 每个平台正上方，容易收集
+   * 2. 空中金币 — 需要从地面或平台大跳才能触到
+   * 3. 抛物线金币 — 从最后平台右边缘跳起，沿跳跃轨迹排列
    */
   createCoins() {
     const { W, H } = this;
@@ -122,23 +134,23 @@ export default class GameScene extends Phaser.Scene {
     // 注册金币旋转动画
     this.anims.create({
       key: 'coin_spin',
-      frames: this.anims.generateFrameNumbers('coin', { start: 0, end: 4 }),
-      frameRate: 10,
+      frames: this.anims.generateFrameNumbers('coin', { start: 0, end: COIN_FRAMES }),
+      frameRate: COIN_SPIN_FRAMERATE,
       repeat: -1
     });
 
-    // 创建金币物理组，关闭重力和移动
+    // 金币物理组：关闭重力，设为不可移动
     this.coins = this.physics.add.group({
       allowGravity: false,
       immovable: true
     });
 
-    // 平台上方金币
+    // 1. 平台上方金币
     this.platformData.forEach(({ x, y }) => {
-      this.coins.add(new Coin(this, x, y - 40));
+      this.coins.add(new Coin(this, x, y - COIN_PLATFORM_OFFSET));
     });
 
-    // 空中金币
+    // 2. 空中金币（需要大跳才能触到）
     const airCoinData = [
       { x: W * 0.35, y: H - 270 },  // 从地面大跳
       { x: W * 0.75, y: H - 520 },  // 从平台大跳
@@ -152,10 +164,10 @@ export default class GameScene extends Phaser.Scene {
       this.coins.add(new Coin(this, x, y));
     });
 
-    // 抛物线金币，自动取最后一个平台的坐标
+    // 3. 抛物线金币：自动取最后一个平台坐标，从右边缘起跳
     const lastPlatform = this.platformData[this.platformData.length - 1];
     this.spawnArcCoins(
-      lastPlatform.x + 75,
+      lastPlatform.x + PLATFORM_WIDTH / 2,  // 平台右边缘
       lastPlatform.y,
       PLAYER_SPEED,
       PLAYER_JUMP_VELOCITY,
@@ -174,55 +186,56 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 创建敌人
-   * 在部分平台上放置史莱姆
+   * 创建史莱姆敌人
+   * 注册动画，并在部分平台上生成敌人
+   * 敌人生成位置 = 平台中心Y - 平台半高 - 敌人偏移
    */
   createEnemies() {
-    // 注册史莱姆动画
+    // 注册史莱姆跑步动画
     this.anims.create({
       key: 'slime_run',
-      frames: this.anims.generateFrameNumbers('slime_run', { start: 0, end: 9 }),
-      frameRate: 10,
+      frames: this.anims.generateFrameNumbers('slime_run', { start: 0, end: SLIME_RUN_FRAMES }),
+      frameRate: SLIME_FRAMERATE,
       repeat: -1
     });
 
+    // 注册史莱姆受击动画
     this.anims.create({
       key: 'slime_hit',
-      frames: this.anims.generateFrameNumbers('slime_hit', { start: 0, end: 4 }),
-      frameRate: 10,
+      frames: this.anims.generateFrameNumbers('slime_hit', { start: 0, end: SLIME_HIT_FRAMES }),
+      frameRate: SLIME_FRAMERATE,
       repeat: 0
     });
 
-    // 在部分平台上放敌人
     this.enemies = this.physics.add.group();
-    const enemyPlatforms = [1, 3, 5, 7, 9]; // platformData 的索引
+
+    // 选取部分平台放置敌人（奇数索引）
+    const enemyPlatforms = [1, 3, 5, 7, 9];
     enemyPlatforms.forEach(i => {
       const { x, y } = this.platformData[i];
-      console.log(`平台${i}: x=${x}, y=${y}, 敌人y=${y - 20}`);
-      const slime = new Slime(this, x, y - PLATFORM_HEIGHT / 2 - 20);
+      const slime = new Slime(this, x, y - PLATFORM_HALF_HEIGHT - SLIME_SPAWN_OFFSET_Y);
       this.enemies.add(slime);
     });
-
   }
 
   /**
    * 创建生命值 HUD
-   * 显示3个爱心在屏幕右上角
+   * 显示爱心在屏幕右上角，setScrollFactor(0) 固定在屏幕上不随摄像机移动
    */
   createLives() {
     this.lives = PLAYER_INITIAL_LIVES;
     this.livesText = this.add.text(this.scale.width - 16, 16, `❤️ x${this.lives}`, {
-      fontSize: '24px',
-      color: '#ff4444',
+      fontSize: HUD_FONT_SIZE,
+      color: HUD_LIVES_COLOR,
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4
+      stroke: HUD_STROKE_COLOR,
+      strokeThickness: HUD_STROKE_THICKNESS
     }).setOrigin(1, 0).setScrollFactor(0);
   }
 
   /**
    * 创建场景装饰物
-   * 包括世界中点的旗子和终点城堡
+   * 旗子放在世界中点，城堡放在世界最右端
    */
   createDecorations() {
     const { WORLD_WIDTH, H } = this;
@@ -233,53 +246,62 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * 注册所有物理碰撞和重叠检测
-   * - 玩家与平台：碰撞
-   * - 玩家与金币：重叠触发计分
-   * - 玩家与城门：重叠触发关卡完成
+   * 必须在 createPlayer、createEnemies、createCoins、createDecorations 之后调用
+   *
+   * - 玩家 vs 平台：物理碰撞，玩家站在平台上
+   * - 敌人 vs 平台：物理碰撞，敌人站在平台上
+   * - 玩家 vs 金币：重叠触发计分并销毁金币
+   * - 玩家 vs 城门：重叠触发关卡完成
+   * - 玩家 vs 敌人：从上方踩死得分，从侧面碰到扣血
    */
   createColliders() {
+    // 玩家与平台碰撞
     this.physics.add.collider(this.player, this.platforms);
+
     // 敌人与平台碰撞
     this.physics.add.collider(this.enemies, this.platforms);
 
+    // 玩家收集金币
     this.physics.add.overlap(this.player, this.coins, (player, coin) => {
       coin.destroy();
-      this.score += 10;
+      this.score += COIN_SCORE_VALUE;
       this.scoreText.setText('Score: ' + this.score);
     });
 
+    // 玩家进入城门触发关卡完成
     this.physics.add.overlap(this.player, this.castle.zone, () => {
       this.scene.start('WinScene');
     });
 
-    // 玩家踩敌人（从上方）
+    // 玩家与敌人交互
     this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
-      // 确保敌人还活着（在平台上）
       if (!enemy.active) return;
 
+      // 从上方踩到敌人：敌人死亡，玩家弹起得分
       if (player.body.velocity.y > 0 && player.y < enemy.y - 10) {
-        enemy.die(this);
-        this.score += 50;
+        enemy.die();
+        this.score += SLIME_SCORE_VALUE;
         this.scoreText.setText('Score: ' + this.score);
-        player.setVelocityY(-400); // 踩敌人后弹起
+        player.setVelocityY(PLAYER_STOMP_BOUNCE);
       } else {
+        // 从侧面碰到敌人：扣血
         this.hitByEnemy();
       }
     });
   }
 
-
   /**
-   * 玩家被敌人碰到
-   * 扣一条命，归零则跳转 GameOver
+   * 玩家被敌人从侧面碰到时触发
+   * 扣一条命并短暂变红（无敌时间）
+   * 生命归零则跳转 GameOver 场景
    */
   hitByEnemy() {
     this.lives -= 1;
     this.livesText.setText('❤️ x' + this.lives);
 
-    // 短暂无敌闪烁
+    // 短暂变红表示受伤，期间不扣血
     this.player.setTint(0xff0000);
-    this.time.delayedCall(1000, () => {
+    this.time.delayedCall(PLAYER_INVINCIBLE_DURATION, () => {
       this.player.clearTint();
     });
 
@@ -288,10 +310,9 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-
   /**
    * 设置摄像机跟随玩家
-   * 限制摄像机在世界边界内移动
+   * 限制摄像机在世界边界内，lerp 参数控制跟随平滑度
    */
   createCamera() {
     this.cameras.main.setBounds(0, 0, this.WORLD_WIDTH, this.H);
@@ -299,23 +320,24 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 创建 HUD 界面
-   * 包括固定在屏幕左上角的分数显示
+   * 创建分数 HUD
+   * 固定在屏幕左上角，setScrollFactor(0) 不随摄像机移动
    */
   createHUD() {
     this.score = 0;
     this.scoreText = this.add.text(16, 16, 'Score: 0', {
-      fontSize: '24px',
-      color: '#FFD700',
+      fontSize: HUD_FONT_SIZE,
+      color: HUD_SCORE_COLOR,
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4
+      stroke: HUD_STROKE_COLOR,
+      strokeThickness: HUD_STROKE_THICKNESS
     }).setScrollFactor(0);
   }
 
   /**
    * 注册键盘输入
-   * 包括方向键、空格跳跃、Ctrl 加速
+   * createCursorKeys 包含方向键和空格
+   * 额外注册 Ctrl 键用于加速跑
    */
   createInput() {
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -325,15 +347,16 @@ export default class GameScene extends Phaser.Scene {
   /**
    * 沿抛物线轨迹生成一串金币
    * 根据物理公式计算每个金币的位置：
-   * x(t) = startX + vx * t
-   * y(t) = startY + vy * t + 0.5 * gravity * t²
-   * @param {number} startX   起跳点 X
-   * @param {number} startY   起跳点 Y
-   * @param {number} vx       水平速度
-   * @param {number} vy       跳跃初速度（负数向上）
-   * @param {number} gravity  重力加速度
-   * @param {number} count    金币数量
-   * @param {number} interval 时间间隔（秒）
+   *   x(t) = startX + vx * t
+   *   y(t) = startY + vy * t + 0.5 * gravity * t²
+   *
+   * @param {number} startX    起跳点 X
+   * @param {number} startY    起跳点 Y
+   * @param {number} vx        水平速度（px/s）
+   * @param {number} vy        跳跃初速度（负数向上）
+   * @param {number} gravity   重力加速度
+   * @param {number} count     金币数量
+   * @param {number} interval  时间间隔（秒）
    */
   spawnArcCoins(startX, startY, vx, vy, gravity, count, interval) {
     for (let i = 1; i <= count; i++) {
@@ -346,13 +369,13 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * 每帧更新
-   * 将键盘输入传给玩家处理
-   * 更新所有敌人状态（移动和动画）
+   * 将键盘输入传给玩家
+   * 更新所有活跃敌人的巡逻逻辑
    */
   update() {
     this.player.update(this.cursors);
-
-    this.enemies.getChildren().forEach(enemy => enemy.update());
+    this.enemies.getChildren().forEach(enemy => {
+      if (enemy.active) enemy.update();
+    });
   }
-
 }
