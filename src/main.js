@@ -2,6 +2,7 @@ import './style.css';
 import Phaser from 'phaser';
 import GameScene from './scenes/GameScene.js';
 import WinScene from './scenes/WinScene.js';
+import { GRAVITY } from './constants.js';
 
 
 const config = {
@@ -15,7 +16,7 @@ const config = {
   },
   physics: {
     default: 'arcade',
-    arcade: { gravity: { y: 800 }, debug: false }
+    arcade: { gravity: { y: GRAVITY }, debug: false }
   },
   scene: [GameScene, WinScene]
 };

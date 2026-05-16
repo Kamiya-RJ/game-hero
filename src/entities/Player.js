@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { PLAYER_SCALE, PLAYER_HEIGHT, GROUND_HEIGHT } from '../constants.js';
+import { PLAYER_SCALE, PLAYER_HEIGHT, PLAYER_SPEED, PLAYER_SPEED_SPRINT, PLAYER_JUMP_VELOCITY } from '../constants.js';
+
+
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
@@ -39,8 +41,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(cursors) {
+    
     const onGround = this.body.blocked.down;
-    const speed = cursors.ctrl.isDown ? 500 : 250;
+    const speed = cursors.ctrl.isDown ? PLAYER_SPEED_SPRINT : PLAYER_SPEED;
   
     // Left / Right
     if (cursors.left.isDown) {
@@ -58,7 +61,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   
     // 可变跳跃
     if (Phaser.Input.Keyboard.JustDown(cursors.space) && onGround) {
-      this.setVelocityY(-600);  // 恢复原来的初速度
+      this.setVelocityY(PLAYER_JUMP_VELOCITY);  // 恢复原来的初速度
       this.isJumping = true;
       this.jumpTime = 0;
       this.play('anim_jump', true);
