@@ -5,7 +5,7 @@
 
 // 世界
 export const WORLD_WIDTH_MULTIPLIER = 4;  // 世界宽度是屏幕宽度的倍数
-export const GRAVITY = 800;               // 全局重力加速度
+export const GRAVITY = 1000;               // 全局重力加速度
 
 // ============================================================
 // 玩家
