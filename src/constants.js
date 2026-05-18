@@ -46,7 +46,7 @@ export const COIN_SCALE = 2;            // 金币缩放比例
 export const COIN_FRAMES = 4;           // 金币动画总帧数（0~4）
 export const COIN_SPIN_FRAMERATE = 10;  // 金币旋转动画帧率
 export const COIN_SCORE_VALUE = 10;     // 收集金币得分
-export const COIN_PLATFORM_OFFSET = 40; // 金币距平台顶部的偏移
+export const COIN_PLATFORM_OFFSET = 80; // 金币距平台顶部的偏移
 
 // ============================================================
 // 史莱姆敌人

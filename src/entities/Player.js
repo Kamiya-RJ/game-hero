@@ -85,7 +85,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // 可变跳跃：按下空格触发跳跃
-    if (Phaser.Input.Keyboard.JustDown(cursors.space) && onGround) {
+    const jumpKey = cursors.up;
+    if (Phaser.Input.Keyboard.JustDown(jumpKey) && onGround) {
       this.setVelocityY(PLAYER_JUMP_VELOCITY);
       this.isJumping = true;
       this.jumpTime = 0;
@@ -94,7 +95,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // 长按空格持续向上施力（大跳）
-    if (cursors.space.isDown && this.isJumping) {
+    if (jumpKey.isDown && this.isJumping) {
       this.jumpTime += 1;
       if (this.jumpTime < PLAYER_JUMP_HOLD_FRAMES) {
         this.setVelocityY(this.body.velocity.y - PLAYER_JUMP_HOLD_FORCE);
@@ -102,7 +103,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // 松开空格截断跳跃速度（小跳）
-    if (Phaser.Input.Keyboard.JustUp(cursors.space)) {
+    if (Phaser.Input.Keyboard.JustUp(jumpKey)) {
       if (this.body.velocity.y < PLAYER_JUMP_MIN_VELOCITY) {
         this.setVelocityY(PLAYER_JUMP_MIN_VELOCITY);
       }

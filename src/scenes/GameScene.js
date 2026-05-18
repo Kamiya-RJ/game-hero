@@ -158,11 +158,14 @@ export default class GameScene extends Phaser.Scene {
     // 2. 空中金币（需要大跳才能触到）
     const airCoinData = [
       { x: W * 0.35, y: H - 270 },  // 从地面大跳
+      { x: W * 0.70, y: H - 520 },  // 从平台大跳
       { x: W * 0.75, y: H - 520 },  // 从平台大跳
-      { x: W * 1.15, y: H - 420 },  // 从平台大跳
-      { x: W * 1.65, y: H - 260 },  // 从地面大跳
-      { x: W * 2.25, y: H - 430 },  // 从平台大跳
-      { x: W * 2.95, y: H - 440 },  // 从平台大跳
+      { x: W * 1.05, y: H - 420 },  // 从平台大跳
+      { x: W * 1.65, y: H - 200 },  // 从地面跳
+      { x: W * 2.20, y: H - 430 },  // 从平台大跳
+      { x: W * 2.25, y: H - 460 },  // 从平台大跳
+      { x: W * 2.30, y: H - 430 },  // 从平台大跳
+      { x: W * 2.85, y: H - 440 },  // 从平台大跳
     ];
 
     airCoinData.forEach(({ x, y }) => {
@@ -173,11 +176,11 @@ export default class GameScene extends Phaser.Scene {
     const lastPlatform = this.platformData[this.platformData.length - 1];
     this.spawnArcCoins(
       lastPlatform.x + PLATFORM_WIDTH / 2,  // 平台右边缘
-      lastPlatform.y,
+      lastPlatform.y - 60,  // 平台顶部
       PLAYER_SPEED,
       PLAYER_JUMP_VELOCITY,
       GRAVITY,
-      7,
+      6,
       0.22
     );
   }
