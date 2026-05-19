@@ -65,6 +65,7 @@ export default class GameScene extends Phaser.Scene {
     this.createHUD();
     this.createInput();
     this.soundManager = new SoundManager(this);
+    this.soundManager.playBGM(); // 启动背景音乐
   }
 
   /**
@@ -283,6 +284,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 玩家进入城门触发关卡完成
     this.physics.add.overlap(this.player, this.castle.zone, () => {
+      this.soundManager.stopBGM(); // 停止背景音乐
       this.scene.start('WinScene');
     });
 
@@ -325,6 +327,7 @@ export default class GameScene extends Phaser.Scene {
     this.player.setVelocityY(PLAYER_KNOCKBACK_Y);
 
     if (this.lives <= 0) {
+      this.soundManager.stopBGM(); // 停止背景音乐
       this.scene.start('GameOverScene');
       return;
     }

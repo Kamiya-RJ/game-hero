@@ -138,4 +138,132 @@ export default class SoundManager {
       setTimeout(() => this.playTone(freq, 'sawtooth', 0.3, 0.3, 'decay'), i * 200);
     });
   }
+
+  /**
+   * 播放背景音乐
+   * 欢快的 C 大调芯片风旋律，自动循环
+   * 旋律层用 square 波，低音层用 triangle 波
+   *
+   * 浏览器自动播放策略：AudioContext 在用户交互前处于 suspended 状态
+   * 先尝试 resume，若仍被挂起则监听首次按键/点击后再启动
+   */
+  playBGM() {
+    if (this.bgmPlaying) return;
+    this.bgmPlaying = true;
+    this._bgmNodes = [];
+
+    const tryStart = () => {
+      if (this.audioCtx.state === 'running') {
+        this._scheduleBGM();
+        return;
+      }
+      this.audioCtx.resume().then(() => {
+        if (this.bgmPlaying) this._scheduleBGM();
+      });
+    };
+
+    if (this.audioCtx.state === 'running') {
+      tryStart();
+    } else {
+      // 等待首次用户交互（键盘或鼠标）来解锁 AudioContext
+      const unlock = () => {
+        document.removeEventListener('keydown', unlock);
+        document.removeEventListener('pointerdown', unlock);
+        tryStart();
+      };
+      document.addEventListener('keydown', unlock, { once: true });
+      document.addEventListener('pointerdown', unlock, { once: true });
+    }
+  }
+
+  /**
+   * 停止背景音乐
+   * 清除所有已调度的振荡器和定时器
+   */
+  stopBGM() {
+    this.bgmPlaying = false;
+    if (this._bgmTimeout) {
+      clearTimeout(this._bgmTimeout);
+      this._bgmTimeout = null;
+    }
+    if (this._bgmNodes) {
+      this._bgmNodes.forEach(n => { try { n.stop(); } catch (e) {} });
+      this._bgmNodes = [];
+    }
+  }
+
+  /**
+   * 内部：调度一轮 BGM 旋律，结束前自动触发下一轮循环
+   *
+   * 旋律序列：[频率Hz, 时值秒]
+   * 低音序列与旋律同步铺底，循环填满整段时值
+   */
+  _scheduleBGM() {
+    if (!this.bgmPlaying) return;
+
+    const ctx = this.audioCtx;
+
+    // 旋律：C 大调跳跃短句，约 2.85 秒一循环
+    const melody = [
+      [523.25, 0.15], [659.25, 0.15], [783.99, 0.15], [1046.50, 0.20],
+      [783.99, 0.10], [880.00, 0.15], [783.99, 0.15], [659.25, 0.20],
+      [523.25, 0.15], [440.00, 0.15], [392.00, 0.15], [349.23, 0.20],
+      [392.00, 0.10], [440.00, 0.15], [523.25, 0.15], [659.25, 0.30],
+    ];
+
+    // 低音：每 0.30s 一拍，填满旋律总长度
+    const bassPattern = [
+      [130.81, 0.30], [164.81, 0.30], [196.00, 0.30], [164.81, 0.30],
+    ];
+
+    const startTime = ctx.currentTime + 0.02; // 微小偏移避免爆音
+    this._bgmNodes = [];
+
+    // 播放旋律层
+    let t = startTime;
+    melody.forEach(([freq, dur]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.85);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + dur);
+      this._bgmNodes.push(osc);
+      t += dur;
+    });
+
+    const totalDur = melody.reduce((sum, [, d]) => sum + d, 0);
+
+    // 播放低音层（循环填满旋律时长）
+    let bt = startTime;
+    const bassEnd = startTime + totalDur;
+    let bi = 0;
+    while (bt < bassEnd) {
+      const [freq, dur] = bassPattern[bi % bassPattern.length];
+      const actualDur = Math.min(dur, bassEnd - bt);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, bt);
+      gain.gain.setValueAtTime(0.04, bt);
+      gain.gain.exponentialRampToValueAtTime(0.001, bt + actualDur * 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(bt);
+      osc.stop(bt + actualDur);
+      this._bgmNodes.push(osc);
+      bt += dur;
+      bi++;
+    }
+
+    // 提前 80ms 调度下一轮，确保无缝循环
+    this._bgmTimeout = setTimeout(
+      () => this._scheduleBGM(),
+      (totalDur - 0.08) * 1000
+    );
+  }
 }
