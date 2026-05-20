@@ -52,6 +52,7 @@ export default class GameScene extends Phaser.Scene {
     this.WORLD_WIDTH = W * WORLD_WIDTH_MULTIPLIER;
 
     this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, H);
+    this.soundManager = new SoundManager(this); // 必须在 createPlayer 之前，Player 构造时需要引用
     this.createTextures();
     this.createGround();
     this.createPlatforms();
@@ -64,7 +65,6 @@ export default class GameScene extends Phaser.Scene {
     this.createCamera();
     this.createHUD();
     this.createInput();
-    this.soundManager = new SoundManager(this);
     this.soundManager.playBGM(); // 启动背景音乐
     this.createBGMToggle();      // BGM 开关按钮（需在 soundManager 后创建）
   }

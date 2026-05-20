@@ -27,6 +27,8 @@ export default class SoundManager {
    */
   playTone(frequency, type = 'square', duration = 0.1, volume = 0.3, shape = 'decay') {
     const ctx = this.audioCtx;
+    // AudioContext 可能因浏览器自动播放策略而挂起，确保恢复后再播放
+    if (ctx.state === 'suspended') ctx.resume();
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
 
@@ -68,6 +70,7 @@ export default class SoundManager {
    */
   playJump() {
     const ctx = this.audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
 
@@ -100,6 +103,7 @@ export default class SoundManager {
    */
   playHurt() {
     const ctx = this.audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
 
