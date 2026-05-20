@@ -238,7 +238,7 @@ export default class SoundManager {
           A4=440.00, B4=493.88, Cs5=554.37,
           D5=587.33, E5=659.25, Fs5=739.99, G5=783.99,
           A5=880.00, B5=987.77, D6=1174.66,
-          D3=146.83, A3=220.00, G3=196.00, Fs3=184.99,
+          D3=146.83, LA3=220.00, G3=196.00, Fs3=184.99,
           E3=164.81, B3=246.94, Cs4=277.18;
 
     // ── 曲目结构 ────────────────────────────────────────────
@@ -305,7 +305,7 @@ export default class SoundManager {
     const C = [
       // 过渡句：下行序列蓄力，为高八度主题铺垫
       [A5,q],[G5,q],[Fs5,q],[E5,q],[D5,q],[Cs5,q],[B4,q],[A4,q],
-      [G4,q],[Fs4,q],[E4,q],[D4,q],[Cs4,q],[B3,q],[A3,q],[0,q],
+      [G4,q],[Fs4,q],[E4,q],[D4,q],[Cs4,q],[B3,q],[LA3,q],[0,q],
 
       [D4,q],[E4,q],[Fs4,q],[G4,q],[A4,q],[B4,q],[Cs5,q],[D5,q],
       [E5,h],[Fs5,h],[G5,h],[0,h],
@@ -348,8 +348,8 @@ export default class SoundManager {
     // ── 低音線（进行曲特征：强-弱-强-弱 律动）──────────────
     // D大调低音：D - A - G - A 循环（强力进行曲步伐）
     const bassPattern = [
-      [D3, h], [A3, q], [0, q],   // 强拍
-      [G3, h], [A3, q], [0, q],   // 弱拍
+      [D3, h], [LA3, q], [0, q],   // 强拍
+      [G3, h], [LA3, q], [0, q],   // 弱拍
     ];
 
     // ── 开始调度 ──────────────────────────────────────────
@@ -420,182 +420,6 @@ export default class SoundManager {
     }
 
     // 提前 120ms 调度下一轮
-    this._bgmTimeout = setTimeout(
-      () => this._scheduleBGM(),
-      (totalDur - 0.12) * 1000
-    );
-  }
-
-    // ── 旋律（A小调，紧张不安）────────────────────────────
-    //
-    // 曲目结构：
-    //   Intro  — 低沉切分，铺垫紧张
-    //   A      — 主题：急促下行，带不稳定减音程
-    //   B      — 爬升段：半音阶上行，压迫感逐步增强
-    //   A'     — 主题高八度变奏：更尖锐，节奏加密
-    //   C      — 危机顶点：密集切分 + 大跳，最紧张
-    //   Outro  — 下行收尾，回到 Intro 准备循环
-    //
-    // 音符格式：[频率Hz, 时值秒]，0 = 休止符
-    // A小调音阶：A B C D E F G（自然小调）
-    //            加入 G#（和声小调导音）制造更强的紧张感
-
-    const Intro = [
-      // 低沉切分节奏，奠定不安气氛
-      [220, q], [0, q], [220, q], [233, q], [0, e], [220, q], [0, q],
-      [208, q], [0, q], [196, q], [0, q],   [185, q],[196, q],[0, e],
-      [220, q], [0, q], [220, q], [246, q], [0, e], [220, q], [0, q],
-      [233, W],
-    ];
-
-    const A = [
-      // 主题：急促下行 Am 旋律，G#导音制造紧张
-      [880, q], [831, q], [880, e], [0, q],
-      [784, q], [740, q], [784, e], [0, q],
-      [659, q], [622, q], [659, q], [0, q], [622, q], [587, q],
-      [659, dh],[0, q],
-
-      // 第二句：跳跃下行，减音程制造不稳定
-      [880, e], [587, e], [0, q],  [659, q], [622, q],
-      [587, e], [523, e], [0, q],  [494, q], [466, q],
-      [440, q], [466, q], [494, q],[523, q], [587, q], [0, q],
-      [622, dh],[0, q],
-    ];
-
-    const B = [
-      // 爬升段：半音阶上行，压迫感逐步增强
-      [440, e], [466, e], [494, e], [523, e],
-      [554, e], [587, e], [622, e], [659, e],
-      [698, e], [740, e], [784, e], [831, e],
-      [880, h], [0, e],
-
-      // 反向下行，情绪不肯解决
-      [831, q], [784, q], [740, q], [698, q],
-      [659, q], [0, q],   [587, q], [0, q],
-      [554, q], [523, q], [494, q], [466, q],
-      [440, dh],[0, q],
-    ];
-
-    const A2 = [
-      // 主题高八度，节奏更密，更尖锐
-      [1760,q], [1661,q],[1760,e], [0, q],
-      [1568,q], [1480,q],[1568,e], [0, q],
-      [1319,q], [1245,q],[1319,q], [0, q],[1245,q],[1175,q],
-      [1319,dh],[0, q],
-
-      [1760,e], [1175,e],[0, q],  [1319,q],[1245,q],
-      [1175,e], [1047,e],[0, q],  [988, q],[932, q],
-      [880, q], [932, q],[988, q],[1047,q],[1175,q],[0, q],
-      [1245,dh],[0, q],
-    ];
-
-    const C = [
-      // 危机顶点：密集切分 + 大跳，最紧张
-      [880, q], [0, q], [1047,q],[0, q],[1175,q],[0, q],[1319,q],[0, q],
-      [1480,q], [0, q], [1319,q],[1175,q],[1047,q],[880,q],[831,q],[0,q],
-
-      // 切分重音，节奏错位营造慌乱感
-      [880,e],[831,q],[880,e],[0,q],[784,q],[831,q],
-      [784,e],[740,q],[784,e],[0,q],[698,q],[740,q],
-      [659,q],[698,q],[740,q],[784,q],[831,q],[880,q],[0,e],
-
-      // 顶点后短暂的喘息（增加戏剧性）
-      [440, W], [0, W],
-    ];
-
-    const Outro = [
-      // 下行收尾，情绪未解决，制造循环感
-      [880, e], [784, e], [698, e], [659, e],
-      [587, e], [523, e], [466, e], [440, e],
-      [392, e], [0, q],   [440, e], [0, q],
-      [466, dh],[0, q],
-      [440, q], [0, q],   [415, q], [0, q],
-      [392, W],
-    ];
-
-    const melody = [...Intro, ...A, ...B, ...A2, ...C, ...Outro];
-    const totalDur = melody.reduce((s, [, d]) => s + d, 0);
-
-    // ── 低音层（持续律动，Am 和弦进行）───────────────────
-    // 每段对应的和弦根音，用律动低音（ostinato）铺底
-    // Am - G - F - E（经典小调下行）循环
-    const bassPattern = [
-      [55.00, h],  // Am 根音（低八度 A）
-      [49.00, h],  // G
-      [43.65, h],  // F
-      [41.20, h],  // E（和声小调，增加紧张）
-    ];
-
-    // ── 开始调度 ──────────────────────────────────────────
-    const T = ctx.currentTime + 0.02;
-    this._bgmNodes = [];
-
-    // 辅助：生成振荡器节点（自动推入 _bgmNodes）
-    const makeOsc = (type, freq, vol, startT, endT, freqRamp) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, startT);
-      if (freqRamp) osc.frequency.exponentialRampToValueAtTime(freqRamp[0], startT + freqRamp[1]);
-      gain.gain.setValueAtTime(vol, startT);
-      gain.gain.exponentialRampToValueAtTime(0.0001, endT);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(startT);
-      osc.stop(endT + 0.01);
-      this._bgmNodes.push(osc);
-    };
-
-    // 1. 旋律层（square，留 15% 间隙，粒度更强）
-    let t = T;
-    melody.forEach(([freq, dur]) => {
-      if (freq !== 0) makeOsc('square', freq, 0.07, t, t + dur * 0.85);
-      t += dur;
-    });
-
-    // 2. 旋律暗影层（sawtooth，低半音，制造不和谐摩擦）
-    //    只在 C段（危机顶点）叠加，音量极低
-    let shadowT = T + [...Intro,...A,...B,...A2].reduce((s,[,d])=>s+d,0);
-    C.forEach(([freq, dur]) => {
-      if (freq !== 0) {
-        // 叠加低半音（×0.9439 = 降半音）
-        makeOsc('sawtooth', freq * 0.9439, 0.02, shadowT, shadowT + dur * 0.6);
-      }
-      shadowT += dur;
-    });
-
-    // 3. 低音律动层（triangle，持续律动 ostinato）
-    let bt = T;
-    let bi = 0;
-    while (bt < T + totalDur) {
-      const [rootFreq, beatDur] = bassPattern[bi % bassPattern.length];
-      if (bt + beatDur > T + totalDur) break;
-      // 根音
-      makeOsc('triangle', rootFreq, 0.09, bt, bt + beatDur * 0.9);
-      // 八度上方（加厚低音）
-      makeOsc('triangle', rootFreq * 2, 0.04, bt, bt + beatDur * 0.7);
-      bt += beatDur;
-      bi++;
-    }
-
-    // 4. 打击节奏层（紧张风格：底鼓密集 + 强力重音）
-    let dt = T;
-    while (dt < T + totalDur) {
-      // 底鼓：每半拍一次（比之前快一倍，紧迫感）
-      makeOsc('sawtooth', 120, 0.08, dt, dt + 0.06, [25, 0.055]);
-      // 弱拍踩镲
-      if (dt + e < T + totalDur) {
-        makeOsc('square', 8000, 0.015, dt + e, dt + e + 0.025);
-      }
-      // 每两拍的重音（snare 模拟）
-      if (dt + h < T + totalDur) {
-        makeOsc('sawtooth', 200, 0.06, dt + h, dt + h + 0.05, [80, 0.045]);
-        makeOsc('square',  8000, 0.02, dt + h, dt + h + 0.03);
-      }
-      dt += h; // 每一拍循环
-    }
-
-    // 提前 120ms 调度下一轮，确保无缝循环
     this._bgmTimeout = setTimeout(
       () => this._scheduleBGM(),
       (totalDur - 0.12) * 1000

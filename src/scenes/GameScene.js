@@ -285,8 +285,8 @@ export default class GameScene extends Phaser.Scene {
 
     // 玩家进入城门触发关卡完成
     this.physics.add.overlap(this.player, this.castle.zone, () => {
-      this.soundManager.stopBGM(); // 停止背景音乐
-      this.scene.start('WinScene');
+      this.soundManager.stopBGM();
+      this.scene.start('WinScene', { score: this.score });
     });
 
     // 玩家与敌人交互
@@ -328,9 +328,8 @@ export default class GameScene extends Phaser.Scene {
     this.player.setVelocityY(PLAYER_KNOCKBACK_Y);
 
     if (this.lives <= 0) {
-      this.soundManager.stopBGM(); // 停止背景音乐
-      this.scene.start('GameOverScene');
-      return;
+      this.soundManager.stopBGM();
+      this.scene.start('GameOverScene', { score: this.score });
     }
 
     // 开启无敌状态
