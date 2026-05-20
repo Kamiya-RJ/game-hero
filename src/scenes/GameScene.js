@@ -66,6 +66,7 @@ export default class GameScene extends Phaser.Scene {
     this.createInput();
     this.soundManager = new SoundManager(this);
     this.soundManager.playBGM(); // 启动背景音乐
+    this.createBGMToggle();      // BGM 开关按钮（需在 soundManager 后创建）
   }
 
   /**
@@ -375,6 +376,39 @@ export default class GameScene extends Phaser.Scene {
       stroke: HUD_STROKE_COLOR,
       strokeThickness: HUD_STROKE_THICKNESS
     }).setScrollFactor(0);
+  }
+
+  /**
+   * 创建 BGM 开关按钮
+   * 显示在屏幕左上角分数下方
+   * 点击切换静音，同时更新图标
+   * 必须在 soundManager 初始化之后调用
+   */
+  createBGMToggle() {
+    this.bgmMuted = false;
+    this.bgmToggleBtn = this.add.text(16, 44, '🔊 BGM', {
+      fontSize: '14px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: HUD_STROKE_COLOR,
+      strokeThickness: HUD_STROKE_THICKNESS,
+      backgroundColor: '#00000055',
+      padding: { x: 6, y: 3 }
+    })
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => this.bgmToggleBtn.setAlpha(0.75))
+      .on('pointerout',  () => this.bgmToggleBtn.setAlpha(1))
+      .on('pointerdown', () => {
+        this.bgmMuted = !this.bgmMuted;
+        if (this.bgmMuted) {
+          this.soundManager.stopBGM();
+          this.bgmToggleBtn.setText('🔇 BGM');
+        } else {
+          this.soundManager.playBGM();
+          this.bgmToggleBtn.setText('🔊 BGM');
+        }
+      });
   }
 
   /**
