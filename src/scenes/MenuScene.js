@@ -61,7 +61,7 @@ export default class MenuScene extends Phaser.Scene {
 
     // 操作说明
     this.add.text(W / 2, H / 2 - 10, [
-      '← → 移动    ↑  跳跃',
+      '⇐ ⇒ 移动        ⇑ 跳跃',
       'Ctrl 加速跑    踩头消灭敌人',
     ].join('\n'), {
       fontSize: '15px',
