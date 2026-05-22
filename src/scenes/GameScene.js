@@ -4,6 +4,7 @@ import Flag from '../objects/Flag.js';
 import Castle from '../objects/Castle.js';
 import Coin from '../objects/Coin.js';
 import Slime from '../entities/Slime.js';
+import Hedgehog from '../entities/Hedgehog.js';
 import SoundManager from '../managers/SoundManager.js';
 import {
   GRAVITY, GROUND_HEIGHT, WORLD_WIDTH_MULTIPLIER,
@@ -13,6 +14,10 @@ import {
   PLATFORM_WIDTH, PLATFORM_HEIGHT, PLATFORM_HALF_HEIGHT,
   COIN_FRAMES, COIN_SPIN_FRAMERATE, COIN_PLATFORM_OFFSET, COIN_SCORE_VALUE,
   SLIME_RUN_FRAMES, SLIME_HIT_FRAMES, SLIME_FRAMERATE, SLIME_SCORE_VALUE, SLIME_SPAWN_OFFSET_Y,
+  HEDGEHOG_FRAMERATE, HEDGEHOG_IDLE1_FRAMES, HEDGEHOG_IDLE2_FRAMES,
+  HEDGEHOG_SPIKES_OUT_FRAMES, HEDGEHOG_SPIKES_IN_FRAMES, HEDGEHOG_HIT_FRAMES,
+  HEDGEHOG_SCORE_VALUE,
+  PIT_DEATH_Y_OFFSET,
   HUD_FONT_SIZE, HUD_SCORE_COLOR, HUD_LIVES_COLOR, HUD_STROKE_COLOR, HUD_STROKE_THICKNESS
 } from '../constants.js';
 
@@ -37,6 +42,11 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('coin', 'assets/Coin_Gems/MonedaD.png', { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('slime_run', 'assets/Enemies/Slime/Idle-Run (44x30).png', { frameWidth: 44, frameHeight: 30 });
     this.load.spritesheet('slime_hit', 'assets/Enemies/Slime/Hit (44x30).png', { frameWidth: 44, frameHeight: 30 });
+    this.load.spritesheet('hedgehog_idle1',     'assets/Enemies/Hedgehog/Idle_1__44x26_.png',     { frameWidth: 44, frameHeight: 26 });
+    this.load.spritesheet('hedgehog_idle2',     'assets/Enemies/Hedgehog/Idle_2__44x26_.png',     { frameWidth: 44, frameHeight: 26 });
+    this.load.spritesheet('hedgehog_spikes_out','assets/Enemies/Hedgehog/Spikes_out__44x26_.png', { frameWidth: 44, frameHeight: 26 });
+    this.load.spritesheet('hedgehog_spikes_in', 'assets/Enemies/Hedgehog/Spikes_in__44x26_.png',  { frameWidth: 44, frameHeight: 26 });
+    this.load.spritesheet('hedgehog_hit',       'assets/Enemies/Hedgehog/Hit__44x26_.png',        { frameWidth: 44, frameHeight: 26 });
   }
 
   /**
@@ -51,7 +61,9 @@ export default class GameScene extends Phaser.Scene {
     this.H = H;
     this.WORLD_WIDTH = W * WORLD_WIDTH_MULTIPLIER;
 
-    this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, H);
+    // 第5~8参数：left, right, top, bottom 是否碰撞
+    // 关掉底部碰撞，让玩家能真正掉进沟里
+    this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, this.H, true, true, true, false);
     this.soundManager = new SoundManager(this); // 必须在 createPlayer 之前，Player 构造时需要引用
     this.createTextures();
     this.createGround();
@@ -81,24 +93,54 @@ export default class GameScene extends Phaser.Scene {
     g.fillRect(0, 0, PLATFORM_WIDTH, PLATFORM_HEIGHT);
     g.generateTexture('platform', PLATFORM_WIDTH, PLATFORM_HEIGHT);
     g.destroy();
-
-    // 地面纹理（宽度覆盖整个世界）
-    const g2 = this.make.graphics({ x: 0, y: 0, add: false });
-    g2.fillStyle(0x228B22, 1);
-    g2.fillRect(0, 0, this.WORLD_WIDTH, GROUND_HEIGHT);
-    g2.generateTexture('ground', this.WORLD_WIDTH, GROUND_HEIGHT);
-    g2.destroy();
+    // 地面纹理在 createGround() 里按段生成
   }
 
   /**
-   * 创建贯穿整个世界的地面
-   * 使用静态物理组，不受重力影响
+   * 创建多段地面，中间留沟
+   * 沟的位置用世界宽度比例定义，方便将来调整
+   * groundSegments 存为实例变量，供掉坑检测复用
+   *
+   * 沟的位置（worldX 比例）：
+   *   沟1：W*1.35 ~ W*1.55  宽约 W*0.20，需要跳跃越过
+   *   沟2：W*2.15 ~ W*2.45  宽约 W*0.30，需要借助平台越过
+   *   沟3：W*3.10 ~ W*3.25  宽约 W*0.15，靠近终点的小沟
    */
   createGround() {
+    const { H, W, WORLD_WIDTH } = this;
     this.platforms = this.physics.add.staticGroup();
-    const ground = this.platforms.create(this.WORLD_WIDTH / 2, this.H - GROUND_HEIGHT / 2, 'ground');
-    ground.setDisplaySize(this.WORLD_WIDTH, GROUND_HEIGHT);
-    ground.refreshBody();
+
+    // 沟的定义：[起始X比例, 结束X比例]（相对世界宽度）
+    this.pitRanges = [
+      { start: W * 1.35, end: W * 1.55 },
+      { start: W * 2.15, end: W * 2.45 },
+      { start: W * 3.10, end: W * 3.25 },
+    ];
+
+    // 从沟的位置反推地面段落
+    const segmentXs = [0, ...this.pitRanges.flatMap(p => [p.start, p.end]), WORLD_WIDTH];
+
+    // 每两个 X 值为一段地面（奇数索引为沟，跳过）
+    for (let i = 0; i < segmentXs.length - 1; i += 2) {
+      const x1 = segmentXs[i];
+      const x2 = segmentXs[i + 1];
+      const segW = x2 - x1;
+      if (segW <= 0) continue;
+
+      // 为每段生成独立纹理（宽度不同）
+      const texKey = `ground_seg_${i}`;
+      if (!this.textures.exists(texKey)) {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0x228B22, 1);
+        g.fillRect(0, 0, segW, GROUND_HEIGHT);
+        g.generateTexture(texKey, segW, GROUND_HEIGHT);
+        g.destroy();
+      }
+
+      const seg = this.platforms.create(x1 + segW / 2, H - GROUND_HEIGHT / 2, texKey);
+      seg.setDisplaySize(segW, GROUND_HEIGHT);
+      seg.refreshBody();
+    }
   }
 
   /**
@@ -201,7 +243,7 @@ export default class GameScene extends Phaser.Scene {
    * 敌人生成位置 = 平台中心Y - 平台半高 - 敌人偏移
    */
   createEnemies() {
-    // 注册史莱姆跑步动画
+    // 注册史莱姆动画
     if (!this.anims.exists('slime_run')) {
       this.anims.create({
         key: 'slime_run',
@@ -210,8 +252,6 @@ export default class GameScene extends Phaser.Scene {
         repeat: -1
       });
     }
-
-    // 注册史莱姆受击动画
     if (!this.anims.exists('slime_hit')) {
       this.anims.create({
         key: 'slime_hit',
@@ -221,14 +261,74 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
+    // 注册刺猬动画
+    if (!this.anims.exists('hedgehog_idle1')) {
+      this.anims.create({
+        key: 'hedgehog_idle1',
+        frames: this.anims.generateFrameNumbers('hedgehog_idle1', { start: 0, end: HEDGEHOG_IDLE1_FRAMES }),
+        frameRate: HEDGEHOG_FRAMERATE,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists('hedgehog_idle2')) {
+      this.anims.create({
+        key: 'hedgehog_idle2',
+        frames: this.anims.generateFrameNumbers('hedgehog_idle2', { start: 0, end: HEDGEHOG_IDLE2_FRAMES }),
+        frameRate: HEDGEHOG_FRAMERATE,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists('hedgehog_spikes_out')) {
+      this.anims.create({
+        key: 'hedgehog_spikes_out',
+        frames: this.anims.generateFrameNumbers('hedgehog_spikes_out', { start: 0, end: HEDGEHOG_SPIKES_OUT_FRAMES }),
+        frameRate: HEDGEHOG_FRAMERATE,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('hedgehog_spikes_in')) {
+      this.anims.create({
+        key: 'hedgehog_spikes_in',
+        frames: this.anims.generateFrameNumbers('hedgehog_spikes_in', { start: 0, end: HEDGEHOG_SPIKES_IN_FRAMES }),
+        frameRate: HEDGEHOG_FRAMERATE,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('hedgehog_hit')) {
+      this.anims.create({
+        key: 'hedgehog_hit',
+        frames: this.anims.generateFrameNumbers('hedgehog_hit', { start: 0, end: HEDGEHOG_HIT_FRAMES }),
+        frameRate: HEDGEHOG_FRAMERATE,
+        repeat: 0
+      });
+    }
+
     this.enemies = this.physics.add.group();
 
-    // 选取部分平台放置敌人（奇数索引）
-    const enemyPlatforms = [1, 3, 5, 7, 9];
-    enemyPlatforms.forEach(i => {
+    // 史莱姆：平台上（奇数索引）
+    const slimePlatforms = [1, 3, 5, 7, 9];
+    slimePlatforms.forEach(i => {
       const { x, y } = this.platformData[i];
       const slime = new Slime(this, x, y - PLATFORM_HALF_HEIGHT - SLIME_SPAWN_OFFSET_Y);
       this.enemies.add(slime);
+    });
+
+    // 刺猬：地面上，放在沟与沟之间的地面段
+    // 避开沟的位置，放在安全的地面区域
+    const { H } = this;
+    const groundY = H - GROUND_HEIGHT - 20; // 地面上方，留出刺猬高度
+    const hedgehogSpawns = [
+      W => W * 0.20,   // 第一段地面中部
+      W => W * 0.75,   // 第一段地面右侧
+      W => W * 1.70,   // 第二段地面左侧（沟1和沟2之间）
+      W => W * 1.95,   // 第二段地面右侧
+      W => W * 2.70,   // 第三段地面中部（沟2和沟3之间）
+      W => W * 3.50,   // 第四段地面（沟3之后）
+    ];
+    hedgehogSpawns.forEach(xFn => {
+      const x = xFn(this.W);
+      const hog = new Hedgehog(this, x, groundY);
+      this.enemies.add(hog);
     });
   }
 
@@ -292,22 +392,29 @@ export default class GameScene extends Phaser.Scene {
     // 玩家与敌人交互
     this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
       if (!enemy.active) return;
-      if (this.isInvincible) return; // 无敌期间跳过所有敌人碰撞
+      if (this.isInvincible) return;
 
-      // 从上方踩到敌人：敌人死亡，玩家弹起得分
-      if (player.body.velocity.y > 0 && player.y < enemy.y - 10) {
+      const isHedgehog = enemy instanceof Hedgehog;
+      const stomping = player.body.velocity.y > 0 && player.y < enemy.y - 10;
+
+      if (stomping) {
+        // 刺猬出刺状态下踩到 → 玩家受伤
+        if (isHedgehog && enemy.spiked) {
+          this.hitByEnemy();
+          return;
+        }
+        // 正常踩死
+        const scoreValue = isHedgehog ? HEDGEHOG_SCORE_VALUE : SLIME_SCORE_VALUE;
         enemy.die();
-        this.score += SLIME_SCORE_VALUE;
+        this.score += scoreValue;
         this.scoreText.setText('Score: ' + this.score);
         player.setVelocityY(PLAYER_STOMP_BOUNCE);
         this.soundManager.playStomp();
       } else {
-        // 从侧面碰到敌人：扣血
+        // 侧面碰到：受伤
         this.hitByEnemy();
       }
-
     });
-
   }
 
   /**
@@ -330,23 +437,24 @@ export default class GameScene extends Phaser.Scene {
     if (this.lives <= 0) {
       this.soundManager.stopBGM();
       this.scene.start('GameOverScene', { score: this.score });
+      return;
     }
 
-    // 开启无敌状态
-    this.isInvincible = true;
+    this._startInvincible();
+  }
 
-    // 闪烁次数 = 无敌时间 / 每次切换间隔 - 1
+  /**
+   * 开启无敌状态 + 闪烁效果
+   * hitByEnemy 和 _fallIntoPit 共用
+   */
+  _startInvincible() {
+    this.isInvincible = true;
     const flashCount = (PLAYER_INVINCIBLE_DURATION / 100) - 1;
-    // 闪烁效果
     this.flashTimer = this.time.addEvent({
       delay: 100,
       repeat: flashCount,
-      callback: () => {
-        this.player.setVisible(!this.player.visible);
-      }
+      callback: () => { this.player.setVisible(!this.player.visible); }
     });
-
-    // 无敌时间结束
     this.time.delayedCall(PLAYER_INVINCIBLE_DURATION, () => {
       this.isInvincible = false;
       this.player.setVisible(true);
@@ -449,9 +557,203 @@ export default class GameScene extends Phaser.Scene {
    * 更新所有活跃敌人的巡逻逻辑
    */
   update() {
+    // 气球救援期间：只允许左右移动，忽略跳跃，重力已关闭
+    if (this.isBalloonRescue) {
+      const speed = 180;
+      if (this.cursors.left.isDown) {
+        this.player.setVelocityX(-speed);
+        this.player.setFlipX(true);
+      } else if (this.cursors.right.isDown) {
+        this.player.setVelocityX(speed);
+        this.player.setFlipX(false);
+      } else {
+        this.player.setVelocityX(0);
+      }
+      this.player.play('anim_idle', true);
+      // 敌人逻辑必须继续运行，否则物理引擎会把平台敌人拉下来
+      this.enemies.getChildren().forEach(enemy => {
+        if (enemy.active) enemy.update();
+      });
+      return;
+    }
+
     this.player.update(this.cursors);
     this.enemies.getChildren().forEach(enemy => {
       if (enemy.active) enemy.update();
+    });
+
+    // 掉坑检测
+    if (this.player.y > this.H + PIT_DEATH_Y_OFFSET) {
+      this._fallIntoPit();
+    }
+  }
+
+  /**
+   * 掉入沟中的处理（马里奥气球救援版）
+   *
+   * 流程：
+   *   1. 扣一条命（无敌期间掉坑不触发）
+   *   2. 生命归零 → GameOver
+   *   3. 生命剩余 → 气球从屏幕下方飘上来救玩家
+   *      - 玩家被气球托起，重力暂时关闭
+   *      - 玩家可左右移动，选择降落位置
+   *      - 3 秒后气球消失，重力恢复，玩家正常下落
+   *      - 无敌状态持续到落地稳定后
+   */
+  _fallIntoPit() {
+    if (this.isInvincible) return;
+
+    this.lives -= 1;
+    this.livesText.setText('❤️ x' + this.lives);
+    this.soundManager.playHurt();
+
+    if (this.lives <= 0) {
+      this.soundManager.stopBGM();
+      this.scene.start('GameOverScene', { score: this.score });
+      return;
+    }
+
+    this._rescueWithBalloon();
+  }
+
+  /**
+   * 气球救援动画与逻辑
+   *
+   * 气球用 Graphics 绘制：圆形气球 + 绳子 + 高光
+   * 气球跟随玩家 X，从屏幕底部飘上来
+   * 托住玩家后，玩家重力关闭，可左右自由移动
+   * 3 秒后气球飘走（向上消失），重力恢复
+   */
+  _rescueWithBalloon() {
+    // 立刻开启无敌，防止气球飘起途中被敌人碰到
+    this.isInvincible = true;
+
+    // 把玩家传送到当前 X、屏幕底部外，准备被气球托起
+    const rescueX = Phaser.Math.Clamp(this.player.x, 60, this.WORLD_WIDTH - 60);
+    const startY  = this.H + 40;
+    const floatY  = this.H * 0.45; // 气球托起后悬停的高度
+
+    this.player.setPosition(rescueX, startY);
+    this.player.setVelocity(0, 0);
+    this.player.body.setGravityY(-this.physics.world.gravity.y); // 抵消重力
+    this.player.setVisible(true);
+
+    // ── 绘制气球 ──────────────────────────────────────────
+    const balloon = this.add.graphics();
+    const drawBalloon = (x, y) => {
+      balloon.clear();
+      // 绳子
+      balloon.lineStyle(2, 0xdddddd, 1);
+      balloon.beginPath();
+      balloon.moveTo(x, y);
+      balloon.lineTo(x, y + 36);
+      balloon.strokePath();
+      // 气球主体
+      balloon.fillStyle(0xff3366, 1);
+      balloon.fillCircle(x, y, 18);
+      // 高光
+      balloon.fillStyle(0xff99bb, 0.6);
+      balloon.fillCircle(x - 6, y - 6, 7);
+      // 气球底部小尖
+      balloon.fillStyle(0xff3366, 1);
+      balloon.fillTriangle(x - 4, y + 16, x + 4, y + 16, x, y + 22);
+    };
+
+    // 气球初始位置：玩家正上方
+    let balloonX = rescueX;
+    let balloonY = startY - 50;
+    drawBalloon(balloonX, balloonY);
+
+    // ── 阶段1：气球飘上来（tween 到 floatY）─────────────
+    const FLOAT_DURATION = 3000; // 悬浮时间（毫秒）
+
+    this.tweens.add({
+      targets: { val: balloonY },
+      val: floatY - 50,
+      duration: 800,
+      ease: 'Sine.easeOut',
+      onUpdate: (tween) => {
+        balloonY = tween.targets[0].val;
+        balloonX = this.player.x;
+        // 玩家跟着气球上升
+        this.player.setY(balloonY + 50);
+        drawBalloon(balloonX, balloonY);
+      },
+      onComplete: () => {
+        // ── 阶段2：悬浮，玩家可左右移动 ────────────────
+        this.player.setY(floatY);
+        this.isBalloonRescue = true;
+
+        // 倒计时提示：屏幕中央显示 "🎈 3...2...1..."
+        const hint = this.add.text(
+          this.cameras.main.scrollX + this.scale.width / 2,
+          floatY - 60,
+          '🎈', { fontSize: '32px' }
+        ).setOrigin(0.5);
+
+        let countdown = 3;
+        const countTimer = this.time.addEvent({
+          delay: 1000,
+          repeat: 2,
+          callback: () => {
+            countdown--;
+            if (countdown > 0) {
+              hint.setText('🎈 ' + countdown);
+              // 气球轻微摇晃
+              this.tweens.add({
+                targets: { dx: 0 },
+                dx: 8,
+                duration: 150,
+                yoyo: true,
+                repeat: 1,
+                onUpdate: (t) => {
+                  balloonX = this.player.x + t.targets[0].dx;
+                  drawBalloon(balloonX, balloonY);
+                }
+              });
+            }
+          }
+        });
+
+        // ── 阶段3：FLOAT_DURATION 后气球飘走 ────────────
+        this.time.delayedCall(FLOAT_DURATION, () => {
+          this.isBalloonRescue = false;
+          hint.destroy();
+          countTimer.remove();
+
+          // 气球向上飘走
+          this.tweens.add({
+            targets: { val: balloonY },
+            val: -100,
+            duration: 600,
+            ease: 'Sine.easeIn',
+            onUpdate: (tween) => {
+              balloonY = tween.targets[0].val;
+              drawBalloon(this.player.x, balloonY);
+            },
+            onComplete: () => {
+              balloon.destroy();
+            }
+          });
+
+          // 恢复重力，玩家正常下落
+          this.player.body.setGravityY(0);
+
+          // 无敌保护持续到落地后再多 1 秒
+          this.time.delayedCall(1200, () => {
+            this.isInvincible = false;
+            this.player.setVisible(true);
+          });
+
+          // 落地期间玩家闪烁提示
+          const flashCount = 10;
+          this.time.addEvent({
+            delay: 100,
+            repeat: flashCount,
+            callback: () => { this.player.setVisible(!this.player.visible); }
+          });
+        });
+      }
     });
   }
 }

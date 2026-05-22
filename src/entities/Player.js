@@ -17,7 +17,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.soundManager = scene.soundManager;
 
     this.setScale(PLAYER_SCALE);
-    this.setCollideWorldBounds(true);
+    // 只碰左右边界，不碰底部，确保玩家能掉进沟里
+    this.setCollideWorldBounds(true, 1, 1, false);
 
     // 跳跃状态
     this.isJumping = false;

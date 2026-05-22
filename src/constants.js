@@ -87,6 +87,33 @@ export const FLAG_WIDTH = 28;        // 旗帜宽度
 export const FLAG_HEIGHT = 25;       // 旗帜高度
 
 // ============================================================
+// 刺猬敌人
+// ============================================================
+export const HEDGEHOG_SPEED = 60;                // 巡逻速度
+export const HEDGEHOG_SCALE = 1.5;               // 缩放比例
+export const HEDGEHOG_FRAME_WIDTH = 44;          // 精灵帧宽度
+export const HEDGEHOG_FRAME_HEIGHT = 26;         // 精灵帧高度
+export const HEDGEHOG_BODY_WIDTH = 34;           // 物理体宽度
+export const HEDGEHOG_BODY_HEIGHT = 20;          // 物理体高度
+export const HEDGEHOG_BODY_OFFSET_X = 5;         // 物理体水平偏移
+export const HEDGEHOG_BODY_OFFSET_Y = 6;         // 物理体垂直偏移
+export const HEDGEHOG_PATROL_HALF = 120;         // 巡逻范围（出生点左右各120px）
+export const HEDGEHOG_SPIKE_INTERVAL = 3000;     // 出刺间隔（毫秒）
+export const HEDGEHOG_SPIKE_DURATION = 2000;     // 出刺持续时间（毫秒）
+export const HEDGEHOG_SCORE_VALUE = 80;          // 踩死得分
+export const HEDGEHOG_FRAMERATE = 10;            // 动画帧率
+export const HEDGEHOG_IDLE1_FRAMES = 13;         // idle1 动画帧数（0~13）
+export const HEDGEHOG_IDLE2_FRAMES = 13;         // idle2 动画帧数（0~13）
+export const HEDGEHOG_SPIKES_OUT_FRAMES = 7;     // 出刺过渡帧数（0~7）
+export const HEDGEHOG_SPIKES_IN_FRAMES = 7;      // 收刺过渡帧数（0~7）
+export const HEDGEHOG_HIT_FRAMES = 4;            // 受击动画帧数（0~4）
+
+// ============================================================
+// 沟（地面空缺）
+// ============================================================
+export const PIT_DEATH_Y_OFFSET = 50; // 玩家 Y 超过地面底部多少像素判定掉坑
+
+// ============================================================
 // HUD 界面
 // ============================================================
 export const HUD_FONT_SIZE = '24px';        // HUD 字体大小
