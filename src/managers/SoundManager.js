@@ -428,7 +428,6 @@ export default class SoundManager {
       [E4, q], [G4, q], [A4, q], [B4, q], [A4, h], [G4, h], [E4, h], [0, h],
       [E4, h], [B3, q], [0, q], [E4, h], [F4, q], [0, q], [E4, h], [G4, h],
       [A4, h], [B4, q], [G4, q], [E4, h], [B3, h], [E4, h],
-      // 第二段：回声变奏
       [E4, h], [B4, q], [0, q], [E4, q], [G4, q], [F4, h], [0, q], [E4, h],
       [A4, h], [B4, q], [G4, q], [A4, q], [B4, q], [G4, h], [E4, h],
     ];
@@ -461,41 +460,42 @@ export default class SoundManager {
       this._bgmNodes.push(osc);
     };
 
-    // 主旋律 triangle，音量 0.09（之前 0.06）
+    // 主旋律 triangle，音量 0.25
     let t = T;
     melody.forEach(([freq, dur]) => {
       if (freq !== 0) {
-        makeOsc('triangle', freq, 0.09, t, t + dur * 0.9);
-        // 轻柔回声
-        makeOsc('triangle', freq, 0.04, t + 0.15, t + dur * 0.7 + 0.15);
+        makeOsc('triangle', freq, 0.25, t, t + dur * 0.9);
+        // 回声保留但音量降低以避免浑浊
+        makeOsc('triangle', freq, 0.08, t + 0.15, t + dur * 0.7 + 0.15);
       }
       t += dur;
     });
 
-    // 和声线 triangle 低八度，音量 0.06
+    // 和声 triangle，音量 0.15
     let ht = T;
     harmony.forEach(([freq, dur]) => {
-      if (freq !== 0) makeOsc('triangle', freq, 0.06, ht, ht + dur * 0.8);
+      if (freq !== 0) makeOsc('triangle', freq, 0.15, ht, ht + dur * 0.8);
       ht += dur;
     });
 
-    // 低音 sine，缓慢根音，音量 0.1
+    // 低音 sine，音量 0.3（最低沉）
     let bt = T;
-    const bass = [[E3, s * 2], [B3, s * 2], [G3, s * 2], [E3, s * 2],
-    [E3, s * 2], [B3, s * 2], [G3, s * 2], [E3, s * 2]];
+    const bass = [[E3 / 2, s * 2], [B3 / 2, s * 2], [G3 / 2, s * 2], [E3 / 2, s * 2],
+    [E3 / 2, s * 2], [B3 / 2, s * 2], [G3 / 2, s * 2], [E3 / 2, s * 2]];
     let bi = 0;
     while (bt < T + totalDur) {
       const [f, d] = bass[bi % bass.length];
-      makeOsc('sine', f, 0.1, bt, bt + d);
+      makeOsc('sine', f, 0.3, bt, bt + d);
       bt += d;
       bi++;
     }
 
-    // 打击：更丰富的滴水声
+    // 打击：低频心跳 + 水滴
     let dt = T;
     while (dt < T + totalDur) {
-      makeOsc('sine', 1200, 0.025, dt, dt + 0.12);
-      makeOsc('sine', 800, 0.02, dt + s, dt + s + 0.1);
+      makeOsc('sine', 60, 0.2, dt, dt + 0.1);   // 低频心跳
+      makeOsc('sine', 1200, 0.06, dt, dt + 0.12);
+      makeOsc('sine', 800, 0.05, dt + s, dt + s + 0.1);
       dt += s * 2;
     }
 
@@ -547,8 +547,10 @@ export default class SoundManager {
     let t = T;
     melody.forEach(([freq, dur]) => {
       if (freq !== 0) {
-        makeOsc('sine', freq, 0.09, t, t + dur * 0.85);
-        makeOsc('triangle', freq * 2, 0.04, t, t + dur * 0.5);
+        // 主旋律 sine，音量 0.12（原 0.09）
+        makeOsc('sine', freq, 0.12, t, t + dur * 0.85);
+        // 高音点缀 triangle，音量 0.06（原 0.04）
+        makeOsc('triangle', freq * 2, 0.06, t, t + dur * 0.5);
       }
       t += dur;
     });
@@ -560,7 +562,8 @@ export default class SoundManager {
     let bi = 0;
     while (bt < T + totalDur) {
       const [f, d] = bass[bi % bass.length];
-      makeOsc('sine', f, 0.07, bt, bt + d);
+      // 低音 sine，音量 0.10（原 0.07）
+      makeOsc('sine', f, 0.10, bt, bt + d);
       bt += d;
       bi++;
     }
@@ -568,8 +571,9 @@ export default class SoundManager {
     // 打击：轻快叮铃
     let dt = T;
     while (dt < T + totalDur) {
-      makeOsc('sine', 1400, 0.025, dt, dt + 0.1);
-      makeOsc('sine', 1800, 0.025, dt + 0.12, dt + 0.22);
+      // 打击叮铃，音量 0.04
+      makeOsc('sine', 1400, 0.04, dt, dt + 0.1);
+      makeOsc('sine', 1800, 0.04, dt + 0.12, dt + 0.22);
       dt += s * 1.5;
     }
 
@@ -586,7 +590,7 @@ export default class SoundManager {
     const q = s / 2;
     const h = s;
     const C4 = 261.63, Eb4 = 311.13, F4 = 349.23, G4 = 392.00, Ab4 = 415.30, Bb4 = 466.16, C5 = 523.25, Db5 = 554.37, Eb5 = 622.26;
-    
+
     const melody = [
       [C5, q], [0, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, q],
       [C5, q], [0, q], [Bb4, q], [Ab4, q], [G4, h], [F4, q], [Eb4, q],
