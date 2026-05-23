@@ -202,5 +202,13 @@ export const GAMEOVER_FONT_SIZE = '52px';   // GameOver 场景标题字体
 export const BTN_FONT_SIZE = '32px';        // 按钮字体大小
 
 
-
+// ============================================================
+// 难度设置
+// ============================================================
+export const DIFFICULTY = {
+  easy:   { label: '容易', lives: 10, description: '10条命' },
+  normal: { label: '一般', lives: 3,  description: '3条命' },
+  hard:   { label: '困难', lives: 1,  description: '1条命' },
+};
+export const CONTINUE_COUNTDOWN = 10; // 续关倒计时秒数
 

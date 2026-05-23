@@ -73,6 +73,7 @@ export default class GameScene extends Phaser.Scene {
     this.theme = THEMES[this.levelCfg.theme];
 
     this.WORLD_WIDTH = W * this.levelCfg.worldWidthMultiplier;
+    this._levelDone = false; // 重置关卡完成标志
 
     // ── 跨关数据 ──────────────────────────────────────────
     this.score = 0;

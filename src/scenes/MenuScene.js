@@ -102,7 +102,11 @@ export default class MenuScene extends Phaser.Scene {
       btn.setScale(1);
     });
     btn.on('pointerdown', () => {
-      this.scene.start('GameScene');
+      this.scene.start('GameScene', {
+        levelId: 1,
+        totalScore: 0,
+        lives: 3
+      });
     });
 
     // 底部版权
@@ -113,7 +117,11 @@ export default class MenuScene extends Phaser.Scene {
 
     // 键盘快捷启动
     this.input.keyboard.once('keydown', () => {
-      this.scene.start('GameScene');
+      this.scene.start('GameScene', {
+        levelId: 1,
+        totalScore: 0,
+        lives: 3
+      });
     });
   }
 }
