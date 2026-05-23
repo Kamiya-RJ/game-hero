@@ -854,10 +854,15 @@ export default class GameScene extends Phaser.Scene {
       // 漂浮状态：玩家不能控制，但可按左右键脱离
       if (this.cursors.left.isDown || this.cursors.right.isDown) {
         this._performBalloonDetach();
-        return; // 跳出本帧，让后续处理接管
+        return;
       }
       this.player.play('anim_idle', true);
+      // 更新敌人
       this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
+      // 更新移动平台（防止冻结后瞬移）
+      if (this.movingPlatforms) {
+        this.movingPlatforms.forEach(mp => { if (mp.active) mp.update(); });
+      }
       return;
     }
 
