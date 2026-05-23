@@ -102,7 +102,7 @@ export default class GameScene extends Phaser.Scene {
     this.createCamera();
     this.createHUD();
     this.createInput();
-    this.soundManager.playBGM();
+    this.soundManager.playBGM(this.levelCfg.theme);
     this.createBGMToggle();
   }
 
@@ -507,7 +507,8 @@ export default class GameScene extends Phaser.Scene {
           this.soundManager.stopBGM();
           this.bgmToggleBtn.setText('🔇 BGM');
         } else {
-          this.soundManager.playBGM();
+          // 在 bgmToggleBtn 的 pointerdown 事件中，恢复 BGM
+          this.soundManager.playBGM(this.levelCfg.theme);
           this.bgmToggleBtn.setText('🔊 BGM');
         }
       });
@@ -577,14 +578,17 @@ export default class GameScene extends Phaser.Scene {
       this._levelComplete();
     });
 
-    // 玩家与敌人
+    // 玩家与敌人的碰撞逻辑：
     this.physics.add.overlap(player, enemies, (p, enemy) => {
-      if (!enemy.active || this.isInvincible || this.isBalloonRescue) return;
+      if (!enemy.active || this.isBalloonRescue) return;
       const stomping = p.body.velocity.y > 0 && p.y < enemy.y - 10;
       const isHedgehog = enemy instanceof Hedgehog;
 
       if (stomping) {
-        if (isHedgehog && enemy.spiked) { this.hitByEnemy(); return; }
+        if (isHedgehog && enemy.spiked) {
+          if (!this.isInvincible) this.hitByEnemy();
+          return;
+        }
         const val = isHedgehog ? HEDGEHOG_SCORE_VALUE : SLIME_SCORE_VALUE;
         enemy.die();
         this.score += val;
@@ -592,7 +596,7 @@ export default class GameScene extends Phaser.Scene {
         p.setVelocityY(PLAYER_STOMP_BOUNCE);
         this.soundManager.playStomp();
       } else {
-        this.hitByEnemy();
+        if (!this.isInvincible) this.hitByEnemy();
       }
     });
   }
@@ -682,8 +686,19 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _fallIntoPit() {
-    // 已经在气球救援中则不再触发
     if (this.isBalloonRescue) return;
+
+    // 找到玩家所在的沟，确定救援 X 位置（沟中心）
+    let rescueX = this.player.x;
+    if (this.pitRanges && this.pitRanges.length > 0) {
+      for (const pit of this.pitRanges) {
+        if (this.player.x >= pit.start && this.player.x <= pit.end) {
+          rescueX = (pit.start + pit.end) / 2;
+          break;
+        }
+      }
+    }
+    rescueX = Phaser.Math.Clamp(rescueX, 60, this.WORLD_WIDTH - 60);
 
     this.lives -= 1;
     this.livesText.setText('❤️ x' + this.lives);
@@ -697,18 +712,18 @@ export default class GameScene extends Phaser.Scene {
       });
       return;
     }
-    this._rescueWithBalloon();
+    this._rescueWithBalloon(rescueX);
   }
 
-  _rescueWithBalloon() {
-    // 不设 isInvincible，用 isBalloonRescue 控制无敌逻辑
-    const rescueX = Phaser.Math.Clamp(this.player.x, 60, this.WORLD_WIDTH - 60);
+  _rescueWithBalloon(rescueX) {
+    // 禁用物理体，防止穿墙/碰撞
+    this.player.body.enable = false;
+    this.player.setVelocity(0, 0);
+
     const startY = this.H + 40;
     const floatY = this.H * 0.45;
 
     this.player.setPosition(rescueX, startY);
-    this.player.setVelocity(0, 0);
-    this.player.body.setGravityY(-this.physics.world.gravity.y);
     this.player.setVisible(true);
 
     const balloon = this.add.graphics();
@@ -768,12 +783,17 @@ export default class GameScene extends Phaser.Scene {
               balloonY = tween.targets[0].val;
               drawBalloon(this.player.x, balloonY);
             },
-            onComplete: () => balloon.destroy()
+            onComplete: () => {
+              balloon.destroy();
+              // 重新启用物理体，并设置到安全位置（略高于地面）
+              this.player.body.enable = true;
+              this.player.body.reset(this.player.x, floatY);
+              this.player.body.setVelocity(0, 0);
+            }
           });
 
-          this.player.body.setGravityY(0);
+          // 气球飞走后短暂闪烁表示无敌结束
           this.time.delayedCall(1200, () => {
-            this.isInvincible = false;
             this.player.setVisible(true);
           });
           this.time.addEvent({
@@ -793,13 +813,11 @@ export default class GameScene extends Phaser.Scene {
     if (this.isBalloonRescue) {
       const speed = 180;
       if (this.cursors.left.isDown) {
-        this.player.setVelocityX(-speed);
+        this.player.x -= speed * this.game.loop.delta / 1000;
         this.player.setFlipX(true);
       } else if (this.cursors.right.isDown) {
-        this.player.setVelocityX(speed);
+        this.player.x += speed * this.game.loop.delta / 1000;
         this.player.setFlipX(false);
-      } else {
-        this.player.setVelocityX(0);
       }
       this.player.play('anim_idle', true);
       this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
