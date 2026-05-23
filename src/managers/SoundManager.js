@@ -418,28 +418,40 @@ export default class SoundManager {
   _scheduleCaveBGM() {
     if (!this.bgmPlaying) return;
     const ctx = this.audioCtx;
-    const s = 0.5; // 慢节奏
+    const s = 0.45;
     const q = s / 2;
     const h = s;
+    const E3 = 164.81, G3 = 196.00, B3 = 246.94, E4 = 329.63, F4 = 349.23, G4 = 392.00, A4 = 440.00, B4 = 493.88;
 
-    // 洞穴旋律：E弗里几亚调式，低沉起伏
-    const E3 = 164.81, G3 = 196.00, B3 = 246.94, E4 = 329.63, F4 = 349.23, A4 = 440.00, B4 = 493.88;
     const melody = [
-      [E4, h], [0, q], [B3, q], [E4, h], [F4, q], [0, q], [E4, h], [B3, h],
+      [E4, h], [B3, q], [0, q], [E4, h], [F4, q], [0, q], [E4, h], [B3, h],
       [E4, q], [G4, q], [A4, q], [B4, q], [A4, h], [G4, h], [E4, h], [0, h],
       [E4, h], [B3, q], [0, q], [E4, h], [F4, q], [0, q], [E4, h], [G4, h],
       [A4, h], [B4, q], [G4, q], [E4, h], [B3, h], [E4, h],
+      // 第二段：回声变奏
+      [E4, h], [B4, q], [0, q], [E4, q], [G4, q], [F4, h], [0, q], [E4, h],
+      [A4, h], [B4, q], [G4, q], [A4, q], [B4, q], [G4, h], [E4, h],
+    ];
+
+    const harmony = [
+      [0, h], [G3, q], [0, q], [0, h], [B3, q], [0, q], [0, h], [G3, h],
+      [0, q], [E4, q], [0, q], [0, q], [0, h], [0, h], [0, h], [0, h],
+      [0, h], [G3, q], [0, q], [0, h], [B3, q], [0, q], [0, h], [0, h],
+      [0, h], [0, q], [0, q], [0, h], [G3, h], [0, h],
+      [0, h], [G4, q], [0, q], [0, q], [E4, q], [B3, h], [0, q], [0, h],
+      [0, h], [0, q], [0, q], [0, q], [0, q], [0, h], [0, h],
     ];
 
     const totalDur = melody.reduce((s, [, d]) => s + d, 0);
     const T = ctx.currentTime + 0.02;
     this._bgmNodes = [];
 
-    const makeOsc = (type, freq, vol, startT, endT) => {
+    const makeOsc = (type, freq, vol, startT, endT, freqRamp) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = type;
       osc.frequency.setValueAtTime(freq, startT);
+      if (freqRamp) osc.frequency.exponentialRampToValueAtTime(freqRamp[0], startT + freqRamp[1]);
       gain.gain.setValueAtTime(vol, startT);
       gain.gain.exponentialRampToValueAtTime(0.0001, endT);
       osc.connect(gain);
@@ -449,32 +461,41 @@ export default class SoundManager {
       this._bgmNodes.push(osc);
     };
 
-    // 主旋律用 triangle + 轻微回声（延迟副本）
+    // 主旋律 triangle，音量 0.09（之前 0.06）
     let t = T;
     melody.forEach(([freq, dur]) => {
       if (freq !== 0) {
-        makeOsc('triangle', freq, 0.06, t, t + dur * 0.9);
-        // 回声：延迟 0.2s，低音量
-        makeOsc('triangle', freq, 0.03, t + 0.2, t + dur * 0.7 + 0.2);
+        makeOsc('triangle', freq, 0.09, t, t + dur * 0.9);
+        // 轻柔回声
+        makeOsc('triangle', freq, 0.04, t + 0.15, t + dur * 0.7 + 0.15);
       }
       t += dur;
     });
 
-    // 低音：缓慢的根音持续
+    // 和声线 triangle 低八度，音量 0.06
+    let ht = T;
+    harmony.forEach(([freq, dur]) => {
+      if (freq !== 0) makeOsc('triangle', freq, 0.06, ht, ht + dur * 0.8);
+      ht += dur;
+    });
+
+    // 低音 sine，缓慢根音，音量 0.1
     let bt = T;
-    const bassNotes = [[E3, s * 2], [B3, s * 2], [G3, s * 2], [E3, s * 2]];
+    const bass = [[E3, s * 2], [B3, s * 2], [G3, s * 2], [E3, s * 2],
+    [E3, s * 2], [B3, s * 2], [G3, s * 2], [E3, s * 2]];
     let bi = 0;
     while (bt < T + totalDur) {
-      const [f, d] = bassNotes[bi % bassNotes.length];
-      makeOsc('sine', f, 0.08, bt, bt + d);
+      const [f, d] = bass[bi % bass.length];
+      makeOsc('sine', f, 0.1, bt, bt + d);
       bt += d;
       bi++;
     }
 
-    // 打击：极简，类似水滴回声
+    // 打击：更丰富的滴水声
     let dt = T;
     while (dt < T + totalDur) {
-      makeOsc('sine', 1200, 0.03, dt, dt + 0.1); // 叮咚
+      makeOsc('sine', 1200, 0.025, dt, dt + 0.12);
+      makeOsc('sine', 800, 0.02, dt + s, dt + s + 0.1);
       dt += s * 2;
     }
 
@@ -487,15 +508,21 @@ export default class SoundManager {
   _scheduleSnowBGM() {
     if (!this.bgmPlaying) return;
     const ctx = this.audioCtx;
-    const s = 0.4; // 轻快
+    const s = 0.4;
     const q = s / 2;
     const h = s;
-    const C5 = 523.25, D5 = 587.33, E5 = 659.25, G5 = 783.99, A5 = 880.00, C6 = 1046.5;
+    const C5 = 523.25, D5 = 587.33, E5 = 659.25, G5 = 783.99, A5 = 880.00, C6 = 1046.5, D6 = 1174.66;
+
     const melody = [
       [E5, q], [0, q], [C5, q], [D5, q], [E5, h], [G5, q], [A5, q],
       [E5, h], [0, q], [C6, q], [D5, q], [C5, h], [D5, q], [0, q],
       [E5, q], [G5, q], [A5, q], [E5, q], [D5, q], [C5, h], [0, h],
       [C6, q], [A5, q], [G5, q], [E5, q], [D5, q], [C5, h], [C5, h],
+      // 第二段：轻快的上行
+      [D5, q], [E5, q], [G5, q], [A5, q], [C6, h], [D6, q], [C6, q],
+      [A5, h], [G5, h], [E5, q], [D5, q], [C5, h], [0, h],
+      [C5, q], [E5, q], [G5, q], [C6, q], [D6, q], [C6, q], [A5, h],
+      [G5, h], [E5, h], [D5, q], [C5, h], [C5, h],
     ];
 
     const totalDur = melody.reduce((s, [, d]) => s + d, 0);
@@ -516,32 +543,33 @@ export default class SoundManager {
       this._bgmNodes.push(osc);
     };
 
-    // 主旋律：清脆 sine + 短促triangle点缀
+    // 主旋律 sine，音量 0.09 + 高音点缀 triangle 0.04
     let t = T;
     melody.forEach(([freq, dur]) => {
       if (freq !== 0) {
-        makeOsc('sine', freq, 0.08, t, t + dur * 0.8);
-        makeOsc('triangle', freq * 2, 0.03, t, t + dur * 0.5);
+        makeOsc('sine', freq, 0.09, t, t + dur * 0.85);
+        makeOsc('triangle', freq * 2, 0.04, t, t + dur * 0.5);
       }
       t += dur;
     });
 
-    // 低音：柔和 sustain
+    // 低音 sine，音量 0.07
     let bt = T;
-    const bass = [[C5 / 2, s * 2], [G5 / 2, s * 2], [A5 / 2, s * 2], [E5 / 2, s * 2]];
+    const bass = [[C5 / 2, s * 2], [G5 / 2, s * 2], [A5 / 2, s * 2], [E5 / 2, s * 2],
+    [D5 / 2, s * 2], [A5 / 2, s * 2], [G5 / 2, s * 2], [C5 / 2, s * 2]];
     let bi = 0;
     while (bt < T + totalDur) {
       const [f, d] = bass[bi % bass.length];
-      makeOsc('sine', f, 0.06, bt, bt + d);
+      makeOsc('sine', f, 0.07, bt, bt + d);
       bt += d;
       bi++;
     }
 
-    // 打击：轻快叮铃声
+    // 打击：轻快叮铃
     let dt = T;
     while (dt < T + totalDur) {
-      makeOsc('sine', 1400, 0.02, dt, dt + 0.08);
-      makeOsc('sine', 1800, 0.02, dt + 0.1, dt + 0.18);
+      makeOsc('sine', 1400, 0.025, dt, dt + 0.1);
+      makeOsc('sine', 1800, 0.025, dt + 0.12, dt + 0.22);
       dt += s * 1.5;
     }
 
@@ -554,15 +582,21 @@ export default class SoundManager {
   _scheduleLavaBGM() {
     if (!this.bgmPlaying) return;
     const ctx = this.audioCtx;
-    const s = 0.25; // 极快
+    const s = 0.22; // 很快
     const q = s / 2;
     const h = s;
-    const C4 = 261.63, Eb4 = 311.13, F4 = 349.23, G4 = 392.00, Ab4 = 415.30, Bb4 = 466.16, C5 = 523.25;
+    const C4 = 261.63, Eb4 = 311.13, F4 = 349.23, G4 = 392.00, Ab4 = 415.30, Bb4 = 466.16, C5 = 523.25, Db5 = 554.37, Eb5 = 622.26;
+    
     const melody = [
       [C5, q], [0, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, q],
       [C5, q], [0, q], [Bb4, q], [Ab4, q], [G4, h], [F4, q], [Eb4, q],
       [C4, q], [Eb4, q], [F4, q], [G4, q], [Ab4, q], [Bb4, q], [C5, h],
       [C5, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, h],
+      // 第二段：压迫感增强，半音阶
+      [Db5, q], [C5, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, q],
+      [Db5, q], [C5, q], [Bb4, q], [Ab4, q], [G4, h], [F4, h],
+      [Ab4, q], [Bb4, q], [C5, q], [Db5, q], [Eb5, q], [Db5, q], [C5, q], [Bb4, q],
+      [Ab4, h], [G4, h], [F4, q], [Eb4, q], [C4, h],
     ];
 
     const totalDur = melody.reduce((s, [, d]) => s + d, 0);
@@ -583,30 +617,32 @@ export default class SoundManager {
       this._bgmNodes.push(osc);
     };
 
-    // 主旋律：刺耳的 sawtooth，压迫感
+    // 主旋律 sawtooth，音量 0.08
     let t = T;
     melody.forEach(([freq, dur]) => {
-      if (freq !== 0) makeOsc('sawtooth', freq, 0.09, t, t + dur * 0.8);
+      if (freq !== 0) makeOsc('sawtooth', freq, 0.08, t, t + dur * 0.8);
       t += dur;
     });
 
-    // 低音：快速 pulsating
+    // 低音 sawtooth，音量 0.1
     let bt = T;
-    const bass = [[C4, q], [C4, q], [G4, q], [Ab4, q]];
+    const bass = [[C4, q], [C4, q], [G4, q], [Ab4, q],
+    [Db5, q], [Ab4, q], [G4, q], [F4, q]];
     let bi = 0;
     while (bt < T + totalDur) {
       const [f, d] = bass[bi % bass.length];
-      makeOsc('sawtooth', f, 0.08, bt, bt + d);
+      makeOsc('sawtooth', f, 0.1, bt, bt + d);
       bt += d;
       bi++;
     }
 
-    // 打击：快速底鼓+军鼓，营造紧张
+    // 打击：强力底鼓 + 密集踩镲
     let dt = T;
     while (dt < T + totalDur) {
-      makeOsc('sawtooth', 100, 0.08, dt, dt + 0.06); // 底鼓
-      makeOsc('square', 400, 0.05, dt + q, dt + q + 0.04); // 军鼓
-      makeOsc('square', 6000, 0.015, dt, dt + 0.04); // 踩镲
+      makeOsc('sawtooth', 100, 0.1, dt, dt + 0.06); // 底鼓
+      makeOsc('square', 400, 0.06, dt + q, dt + q + 0.04); // 军鼓
+      makeOsc('square', 6000, 0.02, dt, dt + 0.04); // 踩镲
+      makeOsc('square', 6000, 0.015, dt + s, dt + s + 0.04); // 额外踩镲
       dt += s * 2;
     }
 

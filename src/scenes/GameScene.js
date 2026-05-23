@@ -80,6 +80,9 @@ export default class GameScene extends Phaser.Scene {
     this.totalCoins = 0;        // 由 createCoins/createBricks/createChests 累计
     this.initialLives = data.lives ?? PLAYER_INITIAL_LIVES;
     this._levelDone = false;     // 重置关卡完成标志
+    // 重置所有运行时状态，防止从其他场景带入（无敌、气球等）
+    this.isInvincible = false;
+    this.isBalloonRescue = false;
 
     // ── 世界物理 ──────────────────────────────────────────
     this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, H, true, true, true, false);
@@ -627,14 +630,6 @@ export default class GameScene extends Phaser.Scene {
   _levelComplete() {
     if (this._levelDone) return;
     this._levelDone = true;
-
-    // 重置无敌状态，避免带入下一关
-    this.isInvincible = false;
-    this.isBalloonRescue = false;
-    if (this.player) {
-      this.player.setVisible(true);
-    }
-
     this.soundManager.stopBGM();
 
     this.scene.start('LevelClearScene', {
@@ -669,6 +664,7 @@ export default class GameScene extends Phaser.Scene {
       });
       return;
     }
+
     this._startInvincible();
   }
 
