@@ -565,14 +565,18 @@ export default class GameScene extends Phaser.Scene {
       this._levelComplete();
     });
 
+
     // 玩家与敌人
     this.physics.add.overlap(player, enemies, (p, enemy) => {
-      if (!enemy.active || this.isInvincible) return;
+      if (!enemy.active) return;
       const stomping = p.body.velocity.y > 0 && p.y < enemy.y - 10;
       const isHedgehog = enemy instanceof Hedgehog;
 
       if (stomping) {
-        if (isHedgehog && enemy.spiked) { this.hitByEnemy(); return; }
+        if (isHedgehog && enemy.spiked) {
+          if (!this.isInvincible) this.hitByEnemy();
+          return;
+        }
         const val = isHedgehog ? HEDGEHOG_SCORE_VALUE : SLIME_SCORE_VALUE;
         enemy.die();
         this.score += val;
@@ -580,7 +584,7 @@ export default class GameScene extends Phaser.Scene {
         p.setVelocityY(PLAYER_STOMP_BOUNCE);
         this.soundManager.playStomp();
       } else {
-        this.hitByEnemy();
+        if (!this.isInvincible) this.hitByEnemy();
       }
     });
   }
