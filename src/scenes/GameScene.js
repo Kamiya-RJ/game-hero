@@ -82,7 +82,7 @@ export default class GameScene extends Phaser.Scene {
     this._levelDone = false;     // 重置关卡完成标志
     // 重置所有运行时状态，防止从其他场景带入（无敌、气球等）
     this.isInvincible = false;
-    this.isBalloonRescue = false;
+    this.isBalloonFloating = false;
 
     // ── 世界物理 ──────────────────────────────────────────
     this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, H, true, true, true, false);
@@ -486,6 +486,15 @@ export default class GameScene extends Phaser.Scene {
       stroke: HUD_STROKE_COLOR,
       strokeThickness: 2
     }).setScrollFactor(0);
+
+    // 气球倒计时（初始隐藏）—— 放在 HUD 顶部中央
+    this.balloonTimerText = this.add.text(this.scale.width / 2, 44, '', {
+      fontSize: '28px',
+      color: '#ff9966',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5, 0).setScrollFactor(0).setVisible(false);
   }
 
   createBGMToggle() {
@@ -583,7 +592,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 玩家与敌人的碰撞逻辑：
     this.physics.add.overlap(player, enemies, (p, enemy) => {
-      if (!enemy.active || this.isBalloonRescue) return;
+      if (!enemy.active || this.isBalloonFloating) return;
       const stomping = p.body.velocity.y > 0 && p.y < enemy.y - 10;
       const isHedgehog = enemy instanceof Hedgehog;
 
@@ -682,19 +691,28 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _fallIntoPit() {
-    if (this.isBalloonRescue) return;
+    if (this.isBalloonFloating) return;
 
-    // 找到玩家所在的沟，确定救援 X 位置（沟中心）
-    let rescueX = this.player.x;
+    // 记录玩家掉坑前的 X 坐标，气球将飘回这里
+    this.rescueTargetX = this.player.x;
+
+    // 找到最近的沟外安全地面（左边缘或右边缘），偏移 20px 确保落在地面上
     if (this.pitRanges && this.pitRanges.length > 0) {
       for (const pit of this.pitRanges) {
         if (this.player.x >= pit.start && this.player.x <= pit.end) {
-          rescueX = (pit.start + pit.end) / 2;
+          const distToStart = this.player.x - pit.start;
+          const distToEnd = pit.end - this.player.x;
+          if (distToStart < distToEnd) {
+            this.rescueTargetX = pit.start - 20; // 左侧地面
+          } else {
+            this.rescueTargetX = pit.end + 20;   // 右侧地面
+          }
           break;
         }
       }
     }
-    rescueX = Phaser.Math.Clamp(rescueX, 60, this.WORLD_WIDTH - 60);
+
+    this.rescueTargetX = Phaser.Math.Clamp(this.rescueTargetX, 60, this.WORLD_WIDTH - 60);
 
     this.lives -= 1;
     this.livesText.setText('❤️ x' + this.lives);
@@ -708,35 +726,39 @@ export default class GameScene extends Phaser.Scene {
       });
       return;
     }
-    this._rescueWithBalloon(rescueX);
+    this._rescueWithBalloon();
   }
 
-  _rescueWithBalloon(rescueX) {
-    // 禁用物理体，防止穿墙/碰撞
+  _rescueWithBalloon() {
+    if (this.balloonGraphic) {
+      this.balloonGraphic.destroy();
+      this.balloonGraphic = null;
+    }
+    // 禁用物理体
     this.player.body.enable = false;
     this.player.setVelocity(0, 0);
 
     const startY = this.H + 40;
     const floatY = this.H * 0.45;
 
-    this.player.setPosition(rescueX, startY);
+    this.player.setPosition(this.player.x, startY);
     this.player.setVisible(true);
 
-    const balloon = this.add.graphics();
+    this.balloonGraphic = this.add.graphics();
     const drawBalloon = (x, y) => {
-      balloon.clear();
-      balloon.lineStyle(2, 0xdddddd, 1);
-      balloon.beginPath(); balloon.moveTo(x, y); balloon.lineTo(x, y + 36); balloon.strokePath();
-      balloon.fillStyle(0xff3366, 1);
-      balloon.fillCircle(x, y, 18);
-      balloon.fillStyle(0xff99bb, 0.6);
-      balloon.fillCircle(x - 6, y - 6, 7);
-      balloon.fillStyle(0xff3366, 1);
-      balloon.fillTriangle(x - 4, y + 16, x + 4, y + 16, x, y + 22);
+      this.balloonGraphic.clear();
+      this.balloonGraphic.lineStyle(2, 0xdddddd, 1);
+      this.balloonGraphic.beginPath(); this.balloonGraphic.moveTo(x, y); this.balloonGraphic.lineTo(x, y + 36); this.balloonGraphic.strokePath();
+      this.balloonGraphic.fillStyle(0xff3366, 1);
+      this.balloonGraphic.fillCircle(x, y, 18);
+      this.balloonGraphic.fillStyle(0xff99bb, 0.6);
+      this.balloonGraphic.fillCircle(x - 6, y - 6, 7);
+      this.balloonGraphic.fillStyle(0xff3366, 1);
+      this.balloonGraphic.fillTriangle(x - 4, y + 16, x + 4, y + 16, x, y + 22);
     };
 
     let balloonY = startY - 50;
-    drawBalloon(rescueX, balloonY);
+    drawBalloon(this.rescueTargetX, balloonY);
 
     this.tweens.add({
       targets: { val: balloonY },
@@ -750,70 +772,89 @@ export default class GameScene extends Phaser.Scene {
       },
       onComplete: () => {
         this.player.setY(floatY);
-        this.isBalloonRescue = true;
+        // 开始漂浮状态
+        this.isBalloonFloating = true;
+        this.balloonTimer = 3;
+        this.balloonTimerText.setVisible(true);
+        this.balloonTimerText.setText('🎈 ' + this.balloonTimer);
+        this.balloonFloatingStartY = floatY;
 
-        const hint = this.add.text(
-          this.cameras.main.scrollX + this.scale.width / 2,
-          floatY - 60, '🎈 3', { fontSize: '32px' }
-        ).setOrigin(0.5);
+        // 气球自动水平飘向 rescueTargetX（已经在目标点则不需移动）
+        const targetX = this.rescueTargetX;
+        const currentX = this.player.x;
+        const distance = targetX - currentX;
+        if (Math.abs(distance) > 2) {
+          this.balloonTween = this.tweens.add({
+            targets: this.player,
+            x: targetX,
+            duration: 2200,
+            ease: 'Sine.easeInOut',
+            onUpdate: () => {
+              drawBalloon(this.player.x, balloonY);
+            }
+          });
+        }
 
-        let countdown = 3;
-        this.time.addEvent({
-          delay: 1000, repeat: 2,
+        // 每秒更新倒计时
+        this.balloonTimerEvent = this.time.addEvent({
+          delay: 1000,
+          repeat: 2,
           callback: () => {
-            countdown--;
-            if (countdown > 0) hint.setText('🎈 ' + countdown);
+            this.balloonTimer--;
+            if (this.balloonTimer > 0) {
+              this.balloonTimerText.setText('🎈 ' + this.balloonTimer);
+            }
           }
         });
 
+        // 3秒后自动脱离
         this.time.delayedCall(3000, () => {
-          this.isBalloonRescue = false;
-          hint.destroy();
-
-          this.tweens.add({
-            targets: { val: balloonY },
-            val: -100,
-            duration: 600,
-            ease: 'Sine.easeIn',
-            onUpdate: (tween) => {
-              balloonY = tween.targets[0].val;
-              drawBalloon(this.player.x, balloonY);
-            },
-            onComplete: () => {
-              balloon.destroy();
-              // 重新启用物理体，并设置到安全位置（略高于地面）
-              this.player.body.enable = true;
-              this.player.body.reset(this.player.x, floatY);
-              this.player.body.setVelocity(0, 0);
-            }
-          });
-
-          // 气球飞走后短暂闪烁表示无敌结束
-          this.time.delayedCall(1200, () => {
-            this.player.setVisible(true);
-          });
-          this.time.addEvent({
-            delay: 100, repeat: 10,
-            callback: () => { this.player.setVisible(!this.player.visible); }
-          });
+          if (this.isBalloonFloating) {
+            this._performBalloonDetach();
+          }
         });
       }
     });
   }
+
+  _performBalloonDetach() {
+    this.isBalloonFloating = false;
+    this.balloonTimerText.setVisible(false);
+    if (this.balloonTimerEvent) this.balloonTimerEvent.destroy();
+    if (this.balloonTween) this.balloonTween.stop();
+
+    // 清除气球绘制
+    if (this.balloonGraphic) {
+      this.balloonGraphic.destroy();
+      this.balloonGraphic = null;
+    }
+
+    // 恢复物理体，设置重力
+    this.player.body.enable = true;
+    this.player.body.reset(this.player.x, this.player.y);
+    this.player.body.setAllowGravity(true);
+    this.player.setVelocity(0, 0);
+    this.player.body.setAllowGravity(true);
+
+    // 短暂无敌闪烁（防止落下后立刻受伤）
+    this.isInvincible = true;
+    this.player.setVisible(true);
+    this.time.delayedCall(1500, () => {
+      this.isInvincible = false;
+    });
+  }
+
 
   // ══════════════════════════════════════════════════════════
   // Update
   // ══════════════════════════════════════════════════════════
 
   update() {
-    if (this.isBalloonRescue) {
-      const speed = 180;
-      if (this.cursors.left.isDown) {
-        this.player.x -= speed * this.game.loop.delta / 1000;
-        this.player.setFlipX(true);
-      } else if (this.cursors.right.isDown) {
-        this.player.x += speed * this.game.loop.delta / 1000;
-        this.player.setFlipX(false);
+    if (this.isBalloonFloating) {
+      // 漂浮状态：玩家不能控制，但可按左右键脱离
+      if (this.cursors.left.isDown || this.cursors.right.isDown) {
+        this._performBalloonDetach();
+        return; // 跳出本帧，让后续处理接管
       }
       this.player.play('anim_idle', true);
       this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
@@ -821,6 +862,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.player.update(this.cursors);
+
     this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
 
     // 更新移动平台
