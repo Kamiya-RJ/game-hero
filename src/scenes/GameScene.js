@@ -592,7 +592,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 玩家与敌人的碰撞逻辑：
     this.physics.add.overlap(player, enemies, (p, enemy) => {
-      if (!enemy.active || this.isBalloonFloating) return;
+      if (!enemy.active || this.isBalloonFloating || this._levelDone) return;
       const stomping = p.body.velocity.y > 0 && p.y < enemy.y - 10;
       const isHedgehog = enemy instanceof Hedgehog;
 
@@ -640,16 +640,29 @@ export default class GameScene extends Phaser.Scene {
     if (this._levelDone) return;
     this._levelDone = true;
     this.soundManager.stopBGM();
+    this.soundManager.playCastleEnter();
 
-    this.scene.start('LevelClearScene', {
-      levelId: this.levelId,
-      score: this.score,
-      totalScore: this.totalScore + this.score,
-      lives: this.lives,
-      collectedCoins: this.collectedCoins,
-      totalCoins: this.totalCoins,
+    // 停止所有敌人活动，防止过渡期间攻击玩家
+    this.enemies.getChildren().forEach(e => {
+      if (e.active) {
+        e.setVelocityX(0);
+        e.body.enable = false;
+      }
+    });
+
+    // 2秒后进入结算界面
+    this.time.delayedCall(2000, () => {
+      this.scene.start('LevelClearScene', {
+        levelId: this.levelId,
+        score: this.score,
+        totalScore: this.totalScore + this.score,
+        lives: this.lives,
+        collectedCoins: this.collectedCoins,
+        totalCoins: this.totalCoins,
+      });
     });
   }
+
 
   // ══════════════════════════════════════════════════════════
   // 受伤 & 掉坑
@@ -850,6 +863,13 @@ export default class GameScene extends Phaser.Scene {
   // ══════════════════════════════════════════════════════════
 
   update() {
+    // 关卡完成过渡期间，禁止所有操作
+    if (this._levelDone) {
+      this.player.setVelocityX(0);
+      this.player.play('anim_idle', true);
+      return;
+    }
+
     if (this.isBalloonFloating) {
       // 漂浮状态：玩家不能控制，但可按左右键脱离
       if (this.cursors.left.isDown || this.cursors.right.isDown) {

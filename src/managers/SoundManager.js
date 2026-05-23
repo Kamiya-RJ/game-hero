@@ -102,10 +102,78 @@ export default class SoundManager {
     oscillator.stop(ctx.currentTime + 0.3);
   }
 
-  playWin() {
+  /**
+ * 进入城堡音效
+ * 快速上升的四音阶 + 低音延留，总长约2秒
+ */
+  playCastleEnter() {
     const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6
     notes.forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 'sine', 0.2, 0.4, 'decay'), i * 150);
+      setTimeout(() => this.playTone(freq, 'sine', 0.5, 0.4, 'rise'), i * 220);
+    });
+    // 低音铺垫
+    setTimeout(() => this.playTone(262, 'triangle', 1.2, 0.35, 'rise'), 0);
+    // 最后的长音
+    setTimeout(() => this.playTone(1047, 'sine', 0.8, 0.3, 'decay'), 800);
+  }
+
+  playWin() {
+    const ctx = this.audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    // 旋律：上行音阶 + 扎实结尾
+    const melody = [
+      { freq: 523, dur: 0.3, type: 'sine', vol: 0.4, delay: 0 },
+      { freq: 587, dur: 0.3, type: 'sine', vol: 0.4, delay: 200 },
+      { freq: 659, dur: 0.3, type: 'sine', vol: 0.4, delay: 400 },
+      { freq: 784, dur: 0.3, type: 'sine', vol: 0.4, delay: 600 },
+      { freq: 880, dur: 0.3, type: 'sine', vol: 0.4, delay: 800 },
+      { freq: 1047, dur: 0.8, type: 'sine', vol: 0.45, delay: 1000 },
+      { freq: 1175, dur: 0.2, type: 'sine', vol: 0.4, delay: 1800 },
+      { freq: 1047, dur: 0.6, type: 'sine', vol: 0.45, delay: 2000 },
+      // 扎实的中音结尾，去掉刺耳高音
+      { freq: 784, dur: 0.8, type: 'sine', vol: 0.45, delay: 2600 },
+      { freq: 659, dur: 1.2, type: 'sine', vol: 0.5, delay: 3400 }
+    ];
+
+    // 和声背景（C大三和弦持续，扎实饱满）
+    const chords = [
+      { freq: 262, dur: 5.0, type: 'triangle', vol: 0.3, delay: 0 },   // C3
+      { freq: 330, dur: 5.0, type: 'triangle', vol: 0.25, delay: 0 },  // E3
+      { freq: 392, dur: 5.0, type: 'triangle', vol: 0.25, delay: 0 },  // G3
+      // 额外加厚低八度
+      { freq: 131, dur: 5.0, type: 'sine', vol: 0.2, delay: 0 }        // C2
+    ];
+
+    const makeTone = (freq, type, vol, startTime, duration, shape = 'decay') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(vol, startTime);
+      if (shape === 'decay') {
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      } else if (shape === 'rise') {
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.linearRampToValueAtTime(vol, startTime + duration * 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      }
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.05);
+    };
+
+    const now = ctx.currentTime;
+
+    // 播放和声
+    chords.forEach(({ freq, dur, type, vol, delay }) => {
+      makeTone(freq, type, vol, now + delay / 1000, dur, 'rise');
+    });
+
+    // 播放旋律
+    melody.forEach(({ freq, dur, type, vol, delay }) => {
+      makeTone(freq, type, vol, now + delay / 1000, dur, 'decay');
     });
   }
 

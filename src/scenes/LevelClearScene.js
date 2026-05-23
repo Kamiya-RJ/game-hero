@@ -27,12 +27,12 @@ export default class LevelClearScene extends Phaser.Scene {
     const H = this.scale.height;
 
     const {
-      levelId      = 1,
-      score        = 0,
-      totalScore   = 0,
-      lives        = 3,
+      levelId = 1,
+      score = 0,
+      totalScore = 0,
+      lives = 3,
       collectedCoins = 0,
-      totalCoins   = 0,
+      totalCoins = 0,
     } = data;
 
     const isLastLevel = levelId >= LEVELS.length;
@@ -51,10 +51,10 @@ export default class LevelClearScene extends Phaser.Scene {
 
     // 结算项目，逐行延迟出现
     const items = [
-      { label: '本关得分',   value: score,                         color: '#FFD700' },
-      { label: '金币收集',   value: `${collectedCoins} / ${totalCoins}`, color: '#FFD700' },
-      { label: '剩余血量',   value: '❤️'.repeat(lives),            color: '#ff6666' },
-      { label: '累计总得分', value: totalScore,                    color: '#aaffaa' },
+      { label: '本关得分', value: score, color: '#FFD700' },
+      { label: '金币收集', value: `${collectedCoins} / ${totalCoins}`, color: '#FFD700' },
+      { label: '剩余血量', value: '❤️'.repeat(lives), color: '#ff6666' },
+      { label: '累计总得分', value: totalScore, color: '#aaffaa' },
     ];
 
     const startY = H * 0.35;
@@ -92,8 +92,8 @@ export default class LevelClearScene extends Phaser.Scene {
     const btnY = lineY + 60;
     const btnDelay = LEVEL_CLEAR_DELAY + items.length * 200 + 400;
 
-    const btnLabel = isLastLevel ? '返回菜单' : '下一关 ▶';
-    const btnColor = isLastLevel ? '#228B22' : '#1a6fcc';
+    const btnLabel = isLastLevel ? '🏆 查看总成绩' : '下一关 ▶';
+    const btnColor = isLastLevel ? '#cc8800' : '#1a6fcc';
 
     const btn = this.add.text(W / 2, btnY, btnLabel, {
       fontSize: BTN_FONT_SIZE,
@@ -110,16 +110,20 @@ export default class LevelClearScene extends Phaser.Scene {
     });
 
     btn.on('pointerover', () => btn.setAlpha(0.8));
-    btn.on('pointerout',  () => btn.setAlpha(1));
+    btn.on('pointerout', () => btn.setAlpha(1));
     btn.on('pointerdown', () => {
       if (isLastLevel) {
-        this.scene.start('MenuScene');
-      } else {
-        // 进入下一关，传递跨关数据
-        this.scene.start('GameScene', {
-          levelId:    levelId + 1,
+        // 跳转到最终胜利场景
+        this.scene.start('WinScene', {
           totalScore: totalScore,
-          lives:      lives,
+          lives: lives
+        });
+      } else {
+        // 进入下一关
+        this.scene.start('GameScene', {
+          levelId: levelId + 1,
+          totalScore: totalScore,
+          lives: lives,
         });
       }
     });

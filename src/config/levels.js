@@ -318,7 +318,7 @@ export const LEVELS = [
         { platformIndex: 17 },
       ],
       hedgehogs: [
-        { xW: 0.20  },
+        { xW: 0.30  },
         { xW: 0.65  },
         { xW: 1.60  },
         { xW: 2.05  },
@@ -426,7 +426,7 @@ export const LEVELS = [
         { platformIndex: 15 },
       ],
       hedgehogs: [
-        { xW: 0.18  },
+        { xW: 0.25  },
         { xW: 0.62  },
         { xW: 1.55  },
         { xW: 2.00  },
