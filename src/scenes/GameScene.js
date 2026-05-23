@@ -73,13 +73,13 @@ export default class GameScene extends Phaser.Scene {
     this.theme = THEMES[this.levelCfg.theme];
 
     this.WORLD_WIDTH = W * this.levelCfg.worldWidthMultiplier;
-    this._levelDone = false; // 重置关卡完成标志
 
     // ── 跨关数据 ──────────────────────────────────────────
     this.score = 0;
     this.collectedCoins = 0;
     this.totalCoins = 0;        // 由 createCoins/createBricks/createChests 累计
     this.initialLives = data.lives ?? PLAYER_INITIAL_LIVES;
+    this._levelDone = false;     // 重置关卡完成标志
 
     // ── 世界物理 ──────────────────────────────────────────
     this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, H, true, true, true, false);
@@ -148,8 +148,13 @@ export default class GameScene extends Phaser.Scene {
       const y = Phaser.Math.Between(H * 0.05, H * 0.45);
       const s = Phaser.Math.FloatBetween(0.6, 1.4);
       const g = this.add.graphics().setDepth(-9);
-      g.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.97, 1.0));  // alpha 0.9~1.0，几乎不透明
+
+      // 大椭圆：完全不透明
+      g.fillStyle(0xffffff, 1);
       g.fillEllipse(x, y, 90 * s, 40 * s);
+
+      // 小椭圆：半透明，保持柔和感
+      g.fillStyle(0xffffff, 0.85);
       g.fillEllipse(x - 28 * s, y + 8 * s, 60 * s, 30 * s);
       g.fillEllipse(x + 28 * s, y + 8 * s, 60 * s, 30 * s);
     }
@@ -285,10 +290,10 @@ export default class GameScene extends Phaser.Scene {
 
   createMovingPlatforms() {
     const { W, H } = this;
-    this.movingPlatforms = [];
+    this.movingPlatforms = []; // 普通数组，不用 physics.add.group()
 
-    // 移动平台专属颜色（可以跟普通平台区分开）
-    const mpColor = 0xffaa00; // 橙色，随便改
+    // 移动平台专属颜色
+    const mpColor = 0xffaa00; // 橙色
 
     (this.levelCfg.movingPlatforms || []).forEach(cfg => {
       const mp = new MovingPlatform(
@@ -298,7 +303,7 @@ export default class GameScene extends Phaser.Scene {
         cfg.type,
         cfg.range,
         cfg.speed,
-        cfg.color || mpColor  // 优先用配置里的颜色，否则默认橙色
+        cfg.color || mpColor
       );
       this.movingPlatforms.push(mp);
     });
@@ -513,7 +518,6 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-
   // ══════════════════════════════════════════════════════════
   // 装饰物（旗子 + 城堡）
   // ══════════════════════════════════════════════════════════
@@ -573,18 +577,14 @@ export default class GameScene extends Phaser.Scene {
       this._levelComplete();
     });
 
-
     // 玩家与敌人
     this.physics.add.overlap(player, enemies, (p, enemy) => {
-      if (!enemy.active) return;
+      if (!enemy.active || this.isInvincible || this.isBalloonRescue) return;
       const stomping = p.body.velocity.y > 0 && p.y < enemy.y - 10;
       const isHedgehog = enemy instanceof Hedgehog;
 
       if (stomping) {
-        if (isHedgehog && enemy.spiked) {
-          if (!this.isInvincible) this.hitByEnemy();
-          return;
-        }
+        if (isHedgehog && enemy.spiked) { this.hitByEnemy(); return; }
         const val = isHedgehog ? HEDGEHOG_SCORE_VALUE : SLIME_SCORE_VALUE;
         enemy.die();
         this.score += val;
@@ -592,7 +592,7 @@ export default class GameScene extends Phaser.Scene {
         p.setVelocityY(PLAYER_STOMP_BOUNCE);
         this.soundManager.playStomp();
       } else {
-        if (!this.isInvincible) this.hitByEnemy();
+        this.hitByEnemy();
       }
     });
   }
@@ -623,6 +623,14 @@ export default class GameScene extends Phaser.Scene {
   _levelComplete() {
     if (this._levelDone) return;
     this._levelDone = true;
+
+    // 重置无敌状态，避免带入下一关
+    this.isInvincible = false;
+    this.isBalloonRescue = false;
+    if (this.player) {
+      this.player.setVisible(true);
+    }
+
     this.soundManager.stopBGM();
 
     this.scene.start('LevelClearScene', {
@@ -674,7 +682,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _fallIntoPit() {
-    if (this.isInvincible) return;
+    // 已经在气球救援中则不再触发
+    if (this.isBalloonRescue) return;
+
     this.lives -= 1;
     this.livesText.setText('❤️ x' + this.lives);
     this.soundManager.playHurt();
@@ -687,12 +697,11 @@ export default class GameScene extends Phaser.Scene {
       });
       return;
     }
-
     this._rescueWithBalloon();
   }
 
   _rescueWithBalloon() {
-    this.isInvincible = true;
+    // 不设 isInvincible，用 isBalloonRescue 控制无敌逻辑
     const rescueX = Phaser.Math.Clamp(this.player.x, 60, this.WORLD_WIDTH - 60);
     const startY = this.H + 40;
     const floatY = this.H * 0.45;
@@ -798,6 +807,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.player.update(this.cursors);
+    this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
 
     // 更新移动平台
     if (this.movingPlatforms) {
@@ -805,8 +815,6 @@ export default class GameScene extends Phaser.Scene {
         if (mp.active) mp.update();
       });
     }
-
-    this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
 
     if (this.player.y > this.H + PIT_DEATH_Y_OFFSET) {
       this._fallIntoPit();
