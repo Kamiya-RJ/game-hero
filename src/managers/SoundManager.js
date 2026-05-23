@@ -586,24 +586,45 @@ export default class SoundManager {
   _scheduleLavaBGM() {
     if (!this.bgmPlaying) return;
     const ctx = this.audioCtx;
-    const s = 0.22; // 很快
+    // 放慢节奏：BPM≈100（s=0.3）
+    const s = 0.3;
     const q = s / 2;
     const h = s;
-    const C4 = 261.63, Eb4 = 311.13, F4 = 349.23, G4 = 392.00, Ab4 = 415.30, Bb4 = 466.16, C5 = 523.25, Db5 = 554.37, Eb5 = 622.26;
+    const C4 = 261.63, Db4 = 277.18, Eb4 = 311.13, F4 = 349.23, Gb4 = 369.99,
+      G4 = 392.00, Ab4 = 415.30, Bb4 = 466.16, C5 = 523.25, Db5 = 554.37,
+      Eb5 = 622.25, F5 = 698.46, G5 = 783.99, Ab5 = 830.61, Bb5 = 932.33;
 
-    const melody = [
-      [C5, q], [0, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, q],
-      [C5, q], [0, q], [Bb4, q], [Ab4, q], [G4, h], [F4, q], [Eb4, q],
-      [C4, q], [Eb4, q], [F4, q], [G4, q], [Ab4, q], [Bb4, q], [C5, h],
-      [C5, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, h],
-      // 第二段：压迫感增强，半音阶
-      [Db5, q], [C5, q], [Bb4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, q], [C4, q],
-      [Db5, q], [C5, q], [Bb4, q], [Ab4, q], [G4, h], [F4, h],
-      [Ab4, q], [Bb4, q], [C5, q], [Db5, q], [Eb5, q], [Db5, q], [C5, q], [Bb4, q],
-      [Ab4, h], [G4, h], [F4, q], [Eb4, q], [C4, h],
+    // A段：压迫主题（保持音符时值不变，由 s 决定速度）
+    const A = [
+      [C4, q], [Eb4, q], [F4, q], [Gb4, q], [G4, h], [F4, q], [Eb4, q],
+      [C4, q], [Eb4, q], [F4, q], [Ab4, q], [G4, h], [F4, h],
+      [C4, q], [Eb4, q], [F4, q], [G4, q], [Ab4, h], [G4, q], [F4, q],
+      [Eb4, q], [F4, q], [G4, q], [Ab4, q], [Bb4, h], [Ab4, h],
+    ];
+    // B段：爬升
+    const B = [
+      [Ab4, q], [Bb4, q], [C5, q], [Db5, q], [Eb5, h], [Db5, q], [C5, q],
+      [Bb4, q], [C5, q], [Db5, q], [Eb5, q], [F5, h], [Eb5, h],
+      [F5, q], [Eb5, q], [Db5, q], [C5, q], [Bb4, h], [Ab4, q], [G4, q],
+      [Ab4, q], [Bb4, q], [C5, q], [Db5, q], [Eb5, h], [Db5, h],
+    ];
+    // C段：高潮
+    const C = [
+      [Eb5, q], [F5, q], [G5, q], [Ab5, q], [G5, q], [F5, q], [Eb5, q], [Db5, q],
+      [C5, q], [Db5, q], [Eb5, q], [F5, q], [Eb5, h], [Db5, q], [C5, q],
+      [Bb4, q], [C5, q], [Db5, q], [Eb5, q], [F5, h], [Eb5, q], [Db5, q],
+      [C5, q], [Bb4, q], [Ab4, q], [G4, q], [Ab4, h], [G4, h],
+    ];
+    // D段：回落
+    const D = [
+      [F4, q], [G4, q], [Ab4, q], [Bb4, q], [C5, h], [Bb4, q], [Ab4, q],
+      [G4, q], [F4, q], [Eb4, q], [C4, q], [Eb4, h], [F4, h],
+      [G4, q], [Ab4, q], [G4, q], [F4, q], [Eb4, h], [C4, q], [Eb4, q],
+      [F4, h], [G4, h], [Ab4, h], [0, h],
     ];
 
-    const totalDur = melody.reduce((s, [, d]) => s + d, 0);
+    const melody = [...A, ...B, ...C, ...D];
+    const totalDur = melody.reduce((sum, [, d]) => sum + d, 0);
     const T = ctx.currentTime + 0.02;
     this._bgmNodes = [];
 
@@ -621,36 +642,80 @@ export default class SoundManager {
       this._bgmNodes.push(osc);
     };
 
-    // 主旋律 sawtooth，音量 0.08
+    // 1. 主旋律 sawtooth，动态音量
     let t = T;
+    let section = 0;
     melody.forEach(([freq, dur]) => {
-      if (freq !== 0) makeOsc('sawtooth', freq, 0.08, t, t + dur * 0.8);
+      if (freq !== 0) {
+        const vol = section === 2 ? 0.08 : section === 3 ? 0.04 : 0.06;
+        makeOsc('sawtooth', freq, vol, t, t + dur * 0.8);
+      }
       t += dur;
+      if (t >= T + totalDur * 0.25 && section === 0) section = 1;
+      if (t >= T + totalDur * 0.5 && section === 1) section = 2;
+      if (t >= T + totalDur * 0.75 && section === 2) section = 3;
     });
 
-    // 低音 sawtooth，音量 0.1
+    // 2. 对位声部：triangle 三度下方，B段开始加入
+    const counterMelody = [...Array(A.length).fill([0, 0]), ...B, ...C, ...Array(D.length).fill([0, 0])];
+    let ct = T;
+    counterMelody.forEach(([freq, dur]) => {
+      if (freq !== 0) {
+        const harmonyFreq = freq * 0.7937;
+        const vol = (ct >= T + totalDur * 0.5) ? 0.05 : 0.03;
+        makeOsc('triangle', harmonyFreq, vol, ct, ct + dur * 0.8);
+      }
+      ct += dur;
+    });
+
+    // 3. 氛围层：sine 高音长音，C段最亮
+    let at = T + totalDur * 0.25;
+    while (at < T + totalDur - s) {
+      const progress = (at - T) / totalDur;
+      const vol = progress < 0.5 ? 0.02 : (progress < 0.75 ? 0.05 : 0.02);
+      const freq = progress < 0.5 ? C5 : (progress < 0.75 ? Eb5 : C5);
+      makeOsc('sine', freq, vol, at, at + s * 2);
+      at += s * 4;
+    }
+
+    // 4. 低音 sawtooth，压迫 pulsating
     let bt = T;
-    const bass = [[C4, q], [C4, q], [G4, q], [Ab4, q],
-    [Db5, q], [Ab4, q], [G4, q], [F4, q]];
+    const bassPattern = [
+      [C4, q], [C4, q], [G4, q], [Ab4, q],
+      [F4, q], [F4, q], [C5, q], [Bb4, q],
+    ];
     let bi = 0;
     while (bt < T + totalDur) {
-      const [f, d] = bass[bi % bass.length];
-      makeOsc('sawtooth', f, 0.1, bt, bt + d);
+      const [f, d] = bassPattern[bi % bassPattern.length];
+      makeOsc('sawtooth', f, 0.10, bt, bt + d);
       bt += d;
       bi++;
     }
 
-    // 打击：强力底鼓 + 密集踩镲
+    // 5. 打击：力度和密度随段落变化
     let dt = T;
     while (dt < T + totalDur) {
-      makeOsc('sawtooth', 100, 0.1, dt, dt + 0.06); // 底鼓
-      makeOsc('square', 400, 0.06, dt + q, dt + q + 0.04); // 军鼓
-      makeOsc('square', 6000, 0.02, dt, dt + 0.04); // 踩镲
-      makeOsc('square', 6000, 0.015, dt + s, dt + s + 0.04); // 额外踩镲
+      const progress = (dt - T) / totalDur;
+      // 底鼓
+      makeOsc('sawtooth', 100, 0.08, dt, dt + 0.06);
+      // 军鼓（A、B段稀疏，C、D段加密）
+      if (progress < 0.5) {
+        makeOsc('square', 400, 0.05, dt + s, dt + s + 0.04);
+      } else {
+        makeOsc('square', 400, 0.05, dt + s, dt + s + 0.04);
+        makeOsc('square', 400, 0.05, dt + s * 1.5, dt + s * 1.5 + 0.04);
+      }
+      // 踩镲
+      makeOsc('square', 6000, 0.015, dt, dt + 0.04);
+      makeOsc('square', 6000, 0.015, dt + s, dt + s + 0.04);
+      if (progress >= 0.5) {
+        makeOsc('square', 6000, 0.012, dt + s * 1.5, dt + s * 1.5 + 0.04);
+      }
       dt += s * 2;
     }
 
     this._bgmTimeout = setTimeout(() => this._scheduleBGM(), (totalDur - 0.08) * 1000);
   }
+
 }
 
