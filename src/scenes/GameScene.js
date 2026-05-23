@@ -481,8 +481,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createBGMToggle() {
-    this.bgmMuted = false;
-    this.bgmToggleBtn = this.add.text(16, 70, '🔊 BGM', {
+    this.bgmMuted = this.registry.get('bgmMuted') || false;
+    this.bgmToggleBtn = this.add.text(16, 70, this.bgmMuted ? '🔇 BGM' : '🔊 BGM', {
       fontSize: '14px',
       color: '#ffffff',
       fontStyle: 'bold',
@@ -497,6 +497,7 @@ export default class GameScene extends Phaser.Scene {
       .on('pointerout', () => this.bgmToggleBtn.setAlpha(1))
       .on('pointerdown', () => {
         this.bgmMuted = !this.bgmMuted;
+        this.registry.set('bgmMuted', this.bgmMuted);
         if (this.bgmMuted) {
           this.soundManager.stopBGM();
           this.bgmToggleBtn.setText('🔇 BGM');
@@ -505,7 +506,13 @@ export default class GameScene extends Phaser.Scene {
           this.bgmToggleBtn.setText('🔊 BGM');
         }
       });
+
+    // 如果菜单关闭了 BGM，进入关卡时也不播放
+    if (this.bgmMuted) {
+      this.soundManager.stopBGM();
+    }
   }
+
 
   // ══════════════════════════════════════════════════════════
   // 装饰物（旗子 + 城堡）
@@ -644,7 +651,10 @@ export default class GameScene extends Phaser.Scene {
 
     if (this.lives <= 0) {
       this.soundManager.stopBGM();
-      this.scene.start('GameOverScene', { score: this.totalScore + this.score });
+      this.scene.start('GameOverScene', {
+        score: this.totalScore + this.score,
+        levelId: this.levelId
+      });
       return;
     }
     this._startInvincible();
@@ -671,9 +681,13 @@ export default class GameScene extends Phaser.Scene {
 
     if (this.lives <= 0) {
       this.soundManager.stopBGM();
-      this.scene.start('GameOverScene', { score: this.totalScore + this.score });
+      this.scene.start('GameOverScene', {
+        score: this.totalScore + this.score,
+        levelId: this.levelId
+      });
       return;
     }
+
     this._rescueWithBalloon();
   }
 
