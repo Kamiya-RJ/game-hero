@@ -265,10 +265,43 @@ export default class GameScene extends Phaser.Scene {
       const texKey = `ground_seg_${i}_${groundColor}`;
       if (!this.textures.exists(texKey)) {
         const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // 基础地面颜色
         g.fillStyle(groundColor, 1);
         g.fillRect(0, 0, segW, GROUND_HEIGHT);
+
+        // 顶部高亮边缘
         g.fillStyle(edgeColor, 1);
         g.fillRect(0, 0, segW, 4);
+
+        // 根据主题地面色生成岩石颜色（变暗、变灰一些）
+        const c = Phaser.Display.Color.IntegerToColor(groundColor);
+        const darken = (v, factor) => Math.max(0, Math.floor(v * factor));
+        const rock1 = Phaser.Display.Color.GetColor(darken(c.red, 0.4), darken(c.green, 0.4), darken(c.blue, 0.4));
+        const rock2 = Phaser.Display.Color.GetColor(darken(c.red, 0.55), darken(c.green, 0.55), darken(c.blue, 0.55));
+        const rock3 = Phaser.Display.Color.GetColor(darken(c.red, 0.7), darken(c.green, 0.7), darken(c.blue, 0.7));
+
+        // 横纹层理
+        g.fillStyle(rock1, 0.4);
+        g.fillRect(0, GROUND_HEIGHT - 16, segW, 3);
+        g.fillStyle(rock2, 0.35);
+        g.fillRect(0, GROUND_HEIGHT - 24, segW, 2);
+        g.fillStyle(rock3, 0.4);
+        g.fillRect(0, GROUND_HEIGHT - 30, segW, 2);
+
+        // 随机岩石块
+        const seed = x1 * 2654435761;
+        let offset = 0;
+        for (let i = 0; i < 6; i++) {
+          offset = (offset + 47 + (seed % 61)) % 101;
+          const rx = (offset / 100) * segW;
+          const rw = 18 + (seed * (i + 1)) % 28;
+          const rh = 7 + (seed * (i + 3)) % 12;
+          const ry = GROUND_HEIGHT - 12 - (seed * (i + 5)) % 18;
+          g.fillStyle(i % 2 === 0 ? rock2 : rock3, 0.5);
+          g.fillRect(rx, ry, rw, rh);
+        }
+
         g.generateTexture(texKey, segW, GROUND_HEIGHT);
         g.destroy();
       }
