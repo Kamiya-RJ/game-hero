@@ -114,6 +114,82 @@ export const HEDGEHOG_HIT_FRAMES = 4;            // 受击动画帧数（0~4）
 export const PIT_DEATH_Y_OFFSET = 50; // 玩家 Y 超过地面底部多少像素判定掉坑
 
 // ============================================================
+// 移动平台
+// ============================================================
+export const MOVING_PLATFORM_WIDTH  = 120;   // 宽度
+export const MOVING_PLATFORM_HEIGHT = 16;    // 高度
+export const MOVING_PLATFORM_SPEED  = 80;    // 默认移动速度（px/s）
+
+// ============================================================
+// 砖块
+// ============================================================
+export const BRICK_SIZE          = 32;    // 砖块边长（正方形）
+export const BRICK_SCORE_VALUE   = 5;     // 击碎得分
+export const BRICK_COIN_VALUE    = 10;    // 砖块内金币得分（若含金币）
+
+// ============================================================
+// 宝箱
+// ============================================================
+export const CHEST_SIZE          = 32;    // 宝箱边长
+export const CHEST_SCORE_VALUE   = 20;    // 击中宝箱得分
+export const CHEST_COIN_COUNT    = 3;     // 宝箱弹出金币数量
+export const CHEST_HEAL_VALUE    = 1;     // 宝箱加血量
+
+// ============================================================
+// 关卡主题配色
+// ============================================================
+export const THEMES = {
+  grassland: {
+    skyTop:      0x87CEEB,  // 天空顶部（浅蓝）
+    skyBottom:   0xE0F4FF,  // 天空底部（更浅）
+    groundColor: 0x228B22,  // 地面绿色
+    groundEdge:  0x32CD32,  // 地面边缘亮绿
+    platformColor: 0x228B22,
+    bgStars:     false,
+    bgClouds:    true,
+  },
+  cave: {
+    skyTop:      0x0a0a1a,
+    skyBottom:   0x1a1a2e,
+    groundColor: 0x555566,
+    groundEdge:  0x7777aa,
+    platformColor: 0x444455,
+    bgStars:     false,
+    bgClouds:    false,
+    bgTorches:   true,
+  },
+  snow: {
+    skyTop:      0xaad4f5,
+    skyBottom:   0xddeeff,
+    groundColor: 0xddeeff,
+    groundEdge:  0xffffff,
+    platformColor: 0xaaccee,
+    bgStars:     false,
+    bgClouds:    true,
+    bgSnow:      true,
+  },
+  lava: {
+    skyTop:      0x0d0005,
+    skyBottom:   0x2a0010,
+    groundColor: 0x333333,
+    groundEdge:  0xff4400,
+    platformColor: 0x442200,
+    bgStars:     false,
+    bgClouds:    false,
+    bgLava:      true,
+  },
+};
+
+// ============================================================
+// 关卡结算界面
+// ============================================================
+export const LEVEL_CLEAR_FONT_LARGE  = '42px';
+export const LEVEL_CLEAR_FONT_MEDIUM = '26px';
+export const LEVEL_CLEAR_FONT_SMALL  = '20px';
+export const LEVEL_CLEAR_DELAY       = 500;   // 出现延迟（ms）
+export const LEVEL_CLEAR_LINE_GAP    = 44;    // 结算行间距（px）
+
+// ============================================================
 // HUD 界面
 // ============================================================
 export const HUD_FONT_SIZE = '24px';        // HUD 字体大小
@@ -124,6 +200,7 @@ export const HUD_STROKE_THICKNESS = 4;      // 文字描边厚度
 export const WIN_FONT_SIZE = '48px';        // 胜利场景标题字体
 export const GAMEOVER_FONT_SIZE = '52px';   // GameOver 场景标题字体
 export const BTN_FONT_SIZE = '32px';        // 按钮字体大小
+
 
 
 

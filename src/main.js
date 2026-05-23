@@ -4,6 +4,7 @@ import MenuScene from './scenes/MenuScene.js';
 import GameScene from './scenes/GameScene.js';
 import WinScene from './scenes/WinScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
+import LevelClearScene from './scenes/LevelClearScene.js';
 import { GRAVITY } from './constants.js';
 
 
@@ -20,7 +21,8 @@ const config = {
     default: 'arcade',
     arcade: { gravity: { y: GRAVITY }, debug: false }
   },
-  scene: [MenuScene, GameScene, WinScene, GameOverScene]
+
+  scene: [MenuScene, GameScene, LevelClearScene, WinScene, GameOverScene]
 };
 
 new Phaser.Game(config);
