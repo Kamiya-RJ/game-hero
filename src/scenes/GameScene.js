@@ -147,7 +147,7 @@ export default class GameScene extends Phaser.Scene {
       const y = Phaser.Math.Between(H * 0.05, H * 0.45);
       const s = Phaser.Math.FloatBetween(0.6, 1.4);
       const g = this.add.graphics().setDepth(-9);
-      g.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.6, 0.9));
+      g.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.97, 1.0));  // alpha 0.9~1.0，几乎不透明
       g.fillEllipse(x, y, 90 * s, 40 * s);
       g.fillEllipse(x - 28 * s, y + 8 * s, 60 * s, 30 * s);
       g.fillEllipse(x + 28 * s, y + 8 * s, 60 * s, 30 * s);
@@ -284,7 +284,10 @@ export default class GameScene extends Phaser.Scene {
 
   createMovingPlatforms() {
     const { W, H } = this;
-    this.movingPlatforms = []; // 普通数组，不用 physics.add.group()
+    this.movingPlatforms = [];
+
+    // 移动平台专属颜色（可以跟普通平台区分开）
+    const mpColor = 0xffaa00; // 橙色，随便改
 
     (this.levelCfg.movingPlatforms || []).forEach(cfg => {
       const mp = new MovingPlatform(
@@ -294,7 +297,7 @@ export default class GameScene extends Phaser.Scene {
         cfg.type,
         cfg.range,
         cfg.speed,
-        this.theme.platformColor
+        cfg.color || mpColor  // 优先用配置里的颜色，否则默认橙色
       );
       this.movingPlatforms.push(mp);
     });
@@ -776,6 +779,14 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.player.update(this.cursors);
+
+    // 更新移动平台
+    if (this.movingPlatforms) {
+      this.movingPlatforms.forEach(mp => {
+        if (mp.active) mp.update();
+      });
+    }
+
     this.enemies.getChildren().forEach(e => { if (e.active) e.update(); });
 
     if (this.player.y > this.H + PIT_DEATH_Y_OFFSET) {

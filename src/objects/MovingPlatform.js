@@ -16,39 +16,45 @@ export default class MovingPlatform extends Phaser.Physics.Arcade.Image {
 
     super(scene, x, y, texKey);
     scene.add.existing(this);
-    scene.physics.add.existing(this, true); // static body
+    scene.physics.add.existing(this); // ← dynamic body（不加 true）
 
-    this.setImmovable(true);
+    // 关键：不受重力，不可推动，但可以有速度
+    this.body.setAllowGravity(false);
+    this.body.setImmovable(true);
 
-    const duration = (range / speed) * 1000;
+    this.startX = x;
+    this.startY = y;
+    this.moveRange = range;
+    this.moveSpeed = speed;
+    this.moveType = type;
 
-    if (type === 'horizontal') {
-      scene.tweens.add({
-        targets: this,
-        x: x + range,
-        duration,
-        ease: 'Sine.easeInOut',
-        yoyo: true,
-        repeat: -1,
-        onUpdate: () => {
-          // static body 没有 reset 方法，直接更新 position
-          this.body.position.x = this.x - this.width / 2;
-          this.body.position.y = this.y - this.height / 2;
-        }
-      });
+    // 初始方向
+    this._moveDir = 1;
+  }
+
+  update() {
+    // 根据类型设置速度
+    if (this.moveType === 'horizontal') {
+      this.body.setVelocityX(this.moveSpeed * this._moveDir);
+
+      // 到达边界反转方向
+      if (this._moveDir === 1 && this.x >= this.startX + this.moveRange) {
+        this._moveDir = -1;
+        this.x = this.startX + this.moveRange; // 防止超出
+      } else if (this._moveDir === -1 && this.x <= this.startX - this.moveRange) {
+        this._moveDir = 1;
+        this.x = this.startX - this.moveRange;
+      }
     } else {
-      scene.tweens.add({
-        targets: this,
-        y: y + range,
-        duration,
-        ease: 'Sine.easeInOut',
-        yoyo: true,
-        repeat: -1,
-        onUpdate: () => {
-          this.body.position.x = this.x - this.width / 2;
-          this.body.position.y = this.y - this.height / 2;
-        }
-      });
+      this.body.setVelocityY(this.moveSpeed * this._moveDir);
+
+      if (this._moveDir === 1 && this.y >= this.startY + this.moveRange) {
+        this._moveDir = -1;
+        this.y = this.startY + this.moveRange;
+      } else if (this._moveDir === -1 && this.y <= this.startY - this.moveRange) {
+        this._moveDir = 1;
+        this.y = this.startY - this.moveRange;
+      }
     }
   }
 }

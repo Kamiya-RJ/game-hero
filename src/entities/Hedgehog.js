@@ -43,13 +43,18 @@ export default class Hedgehog extends Phaser.Physics.Arcade.Sprite {
 
     // 巡逻起点
     this.startX = x;
-    this.direction = 1; // 1=右，-1=左
+    // 随机初始方向
+    this.direction = Math.random() > 0.5 ? 1 : -1;
+    // 随机速度微调，让每个刺猬移动节奏不同
+    this.moveSpeed = HEDGEHOG_SPEED * (0.7 + Math.random() * 0.6);
 
     // 刺状态
     this.spiked = false;       // 当前是否处于出刺危险状态
     this.transitioning = false; // 是否正在播放过渡动画
 
-    this.setVelocityX(HEDGEHOG_SPEED * this.direction);
+    this.setVelocityX(this.moveSpeed * this.direction);
+    // 向右时翻转（素材默认朝左，眼睛朝右需要 flip）
+    this.setFlipX(this.direction === 1);
     this.play('hedgehog_idle1');
 
     // 启动刺猬出刺定时器
@@ -59,8 +64,10 @@ export default class Hedgehog extends Phaser.Physics.Arcade.Sprite {
   /**
    * 启动出刺 / 收刺定时循环
    * 用 scene.time.addEvent 而非 setInterval，确保随场景生命周期一起清理
+   * 每个刺猬初始延迟随机，避免同步出刺
    */
   _startSpikeTimer(scene) {
+    const initialDelay = Phaser.Math.Between(0, HEDGEHOG_SPIKE_INTERVAL);
     scene.time.addEvent({
       delay: HEDGEHOG_SPIKE_INTERVAL,
       loop: true,
@@ -69,7 +76,8 @@ export default class Hedgehog extends Phaser.Physics.Arcade.Sprite {
         if (!this.spiked) {
           this._extendSpikes();
         }
-      }
+      },
+      startAt: initialDelay
     });
   }
 
@@ -116,20 +124,22 @@ export default class Hedgehog extends Phaser.Physics.Arcade.Sprite {
     // 碰墙反向
     if (this.body.blocked.right) {
       this.direction = -1;
+      this.setFlipX(false); // 向左，不翻转
     } else if (this.body.blocked.left) {
       this.direction = 1;
+      this.setFlipX(true);  // 向右，翻转素材
     }
 
     // 超出巡逻范围反向
     if (this.x > this.startX + HEDGEHOG_PATROL_HALF) {
       this.direction = -1;
+      this.setFlipX(false);
     } else if (this.x < this.startX - HEDGEHOG_PATROL_HALF) {
       this.direction = 1;
+      this.setFlipX(true);
     }
 
-    this.setVelocityX(HEDGEHOG_SPEED * this.direction);
-    // 朝向：向左时翻转
-    this.setFlipX(this.direction === -1);
+    this.setVelocityX(this.moveSpeed * this.direction);
   }
 
   /**

@@ -17,6 +17,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.soundManager = scene.soundManager;
 
     this.setScale(PLAYER_SCALE);
+
+    // 碰撞体：宽度缩到 10px（边缘敏感），高度保持 26px，底部留 6px 空隙
+    // 这样脚底实际碰撞区域只有底部一小块在平台上，边缘一超出就掉
+    // 但头顶能正常撞平台，从下方跳跃不会穿过
+    this.body.setSize(10, 26);
+    this.body.setOffset(11, 6);
+
     // 只碰左右边界，不碰底部，确保玩家能掉进沟里
     this.setCollideWorldBounds(true, 1, 1, false);
 

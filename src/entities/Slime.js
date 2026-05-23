@@ -18,12 +18,15 @@ export default class Slime extends Phaser.Physics.Arcade.Sprite {
 
     this.setScale(SLIME_SCALE);
     this.setCollideWorldBounds(true);
-    this.setVelocityX(SLIME_SPEED);
 
-    this.setFlipX(true); // 默认翻转，修正图片方向
+    // 巡逻方向：1 向右，-1 向左（随机初始方向）
+    this.direction = Math.random() > 0.5 ? 1 : -1;
+    // 随机速度微调，让每个史莱姆移动节奏不同
+    this.moveSpeed = SLIME_SPEED * (0.7 + Math.random() * 0.6);
+    this.setVelocityX(this.moveSpeed * this.direction);
 
-    // 巡逻方向：1 向右，-1 向左
-    this.direction = 1;
+    // 根据初始方向设置朝向
+    this.setFlipX(this.direction === 1);
 
     // 记录出生点，用于计算巡逻范围
     this.startX = x;
@@ -40,6 +43,8 @@ export default class Slime extends Phaser.Physics.Arcade.Sprite {
    * 优先检测世界边界，其次检测平台边缘范围
    */
   update() {
+    if (!this.active) return;
+
     // 碰到世界边界时反向
     if (this.body.blocked.right) {
       this.direction = -1;
@@ -59,7 +64,7 @@ export default class Slime extends Phaser.Physics.Arcade.Sprite {
       this.setFlipX(true); // 向右
     }
 
-    this.setVelocityX(SLIME_SPEED * this.direction);
+    this.setVelocityX(this.moveSpeed * this.direction);
   }
 
   /**
